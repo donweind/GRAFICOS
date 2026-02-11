@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LabelList 
 } from 'recharts';
 import { 
-  PlusCircle, Trash2, TrendingUp, Activity, FileText, LayoutDashboard, Table, AlertTriangle, CheckCircle, Upload, Clipboard, RefreshCw, Briefcase, DollarSign, Maximize2, X
+  PlusCircle, Trash2, TrendingUp, Activity, FileText, LayoutDashboard, Table, AlertTriangle, CheckCircle, Upload, Clipboard, RefreshCw, Briefcase, DollarSign, Maximize2, X, Download
 } from 'lucide-react';
 
 // --- Componentes UI ---
@@ -27,8 +27,55 @@ const KpiCard = ({ title, value, subtext, icon: Icon, colorClass, borderClass })
   </Card>
 );
 
-// --- Componente Modal para "Ver Todo" ---
-const FullScreenModal = ({ isOpen, onClose, title, children }) => {
+// --- Función de descarga de gráfico ---
+const downloadChartAsPng = (elementId, fileName) => {
+  const svgElement = document.querySelector(`#${elementId} svg`);
+  if (!svgElement) {
+    alert("No se encontró el gráfico para descargar.");
+    return;
+  }
+
+  // Serializar el SVG
+  const serializer = new XMLSerializer();
+  const svgString = serializer.serializeToString(svgElement);
+  
+  // Crear un canvas
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+
+  // Obtener dimensiones reales del SVG para el canvas
+  const svgRect = svgElement.getBoundingClientRect();
+  canvas.width = svgRect.width + 40; // Margen extra
+  canvas.height = svgRect.height + 40;
+
+  // Fondo blanco para que no sea transparente
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  img.onload = () => {
+    // Dibujar imagen centrada con un poco de margen
+    ctx.drawImage(img, 20, 20);
+    const pngUrl = canvas.toDataURL("image/png");
+    
+    // Crear link de descarga
+    const downloadLink = document.createElement("a");
+    downloadLink.href = pngUrl;
+    downloadLink.download = `${fileName}.png`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(url);
+  };
+
+  img.src = url;
+};
+
+// --- Componente Modal para "Ver Todo" con Descarga ---
+const FullScreenModal = ({ isOpen, onClose, title, children, contentId }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
@@ -38,15 +85,45 @@ const FullScreenModal = ({ isOpen, onClose, title, children }) => {
             <Activity className="mr-2 text-blue-600" size={24}/>
             {title}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-800">
-            <X size={24} />
-          </button>
+          <div className="flex space-x-2">
+            <button 
+              onClick={() => downloadChartAsPng(contentId, title.replace(/\s+/g, '_'))}
+              className="flex items-center px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium text-sm"
+              title="Descargar Gráfico como PNG"
+            >
+              <Download size={18} className="mr-2"/> Descargar PNG
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-800">
+              <X size={24} />
+            </button>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-          {children}
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-50" id={contentId}>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+             {children}
+          </div>
         </div>
       </div>
     </div>
+  );
+};
+
+// --- Renderizado de Etiquetas Personalizadas para Pie Chart ---
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
+  const RADIAN = Math.PI / 180;
+  // Aumentar radio para empujar texto hacia afuera
+  const radius = outerRadius + 30; 
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  const textAnchor = x > cx ? 'start' : 'end';
+
+  // Formato moneda
+  const formattedValue = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
+
+  return (
+    <text x={x} y={y} fill="#334155" textAnchor={textAnchor} dominantBaseline="central" fontSize="11" fontWeight="bold">
+      {`${name}: ${formattedValue} (${(percent * 100).toFixed(1)}%)`}
+    </text>
   );
 };
 
@@ -363,7 +440,7 @@ export default function MaintenanceDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Activity className="text-emerald-400" />
-            <span className="text-lg font-semibold tracking-wide text-slate-100">DASHBOARD GERENCIAL</span>
+            <span className="text-lg font-semibold tracking-wide text-slate-100">DASHBOARD</span>
           </div>
           <nav className="flex space-x-2">
             <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>Dashboard</button>
@@ -388,35 +465,56 @@ export default function MaintenanceDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <KpiCard title="TOTAL API (INVERSIÓN)" value={formatCurrency(metrics.byConcepto['API'] || 0)} subtext="Proyectos y Mejoras" icon={TrendingUp} colorClass="bg-blue-600" borderClass="border-blue-600" />
-              <KpiCard title="TOTAL OPEX (OPERATIVO)" value={formatCurrency(metrics.byConcepto['OPEX'] || 0)} subtext="Mantenimiento Rutinario" icon={DollarSign} colorClass="bg-slate-500" borderClass="border-slate-500" />
+              <KpiCard title="TOTAL API (INVERSIÓN)" value={formatCurrency(metrics.byConcepto['API'] || 0)} subtext="" icon={TrendingUp} colorClass="bg-blue-600" borderClass="border-blue-600" />
+              <KpiCard title="TOTAL OPEX (OPERATIVO)" value={formatCurrency(metrics.byConcepto['OPEX'] || 0)} subtext="" icon={DollarSign} colorClass="bg-slate-500" borderClass="border-slate-500" />
               <KpiCard title="EFICIENCIA PREVENTIVA" value={`${((metrics.chartDataTipo.find(c => c.name === 'PREVENTIVO')?.value || 0) / (metrics.totalGasto || 1) * 100).toFixed(1)}%`} subtext="% del Presupuesto en Prevención" icon={CheckCircle} colorClass="bg-emerald-500" borderClass="border-emerald-500" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Gráfico 1: Distribución API vs OPEX con etiquetas externas */}
               <Card className="p-6">
                 <h3 className="text-sm font-bold text-slate-700 uppercase mb-6 flex items-center"><span className="w-1 h-4 bg-blue-800 mr-2"></span>Distribución (API vs OPEX)</h3>
                 {data.length > 0 ? (
-                  <div className="h-72 w-full">
+                  <div className="h-80 w-full flex justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={metrics.chartDataConcepto} cx="50%" cy="50%" innerRadius={80} outerRadius={110} paddingAngle={2} dataKey="value">
+                        <Pie 
+                          data={metrics.chartDataConcepto} 
+                          cx="50%" cy="50%" 
+                          innerRadius={60} 
+                          outerRadius={90} 
+                          paddingAngle={2} 
+                          dataKey="value"
+                          label={renderCustomizedLabel} // Usar etiqueta personalizada
+                          labelLine={true}
+                        >
                           {metrics.chartDataConcepto.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.name === 'API' ? COLORS.API : entry.name === 'OPEX' ? COLORS.OPEX : COLORS.IMP} />))}
                         </Pie>
                         <RechartsTooltip formatter={(value) => formatCurrency(value)} contentStyle={{borderRadius:'8px'}} />
-                        <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-slate-600 font-medium ml-1">{value}</span>} />
+                        <Legend verticalAlign="bottom" height={36} iconType="circle" />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
                 ) : <div className="h-72 flex items-center justify-center text-slate-400">Sin datos</div>}
               </Card>
+
+              {/* Gráfico 2: Eficiencia con etiquetas externas */}
               <Card className="p-6">
                  <h3 className="text-sm font-bold text-slate-700 uppercase mb-6 flex items-center"><span className="w-1 h-4 bg-emerald-600 mr-2"></span>Eficiencia (Tipo de OM)</h3>
                 {data.length > 0 ? (
-                  <div className="h-72 w-full">
+                  <div className="h-80 w-full flex justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={metrics.chartDataTipo} cx="50%" cy="50%" innerRadius={80} outerRadius={110} paddingAngle={2} dataKey="value">
+                        <Pie 
+                          data={metrics.chartDataTipo} 
+                          cx="50%" cy="50%" 
+                          innerRadius={60} 
+                          outerRadius={90} 
+                          paddingAngle={2} 
+                          dataKey="value"
+                          label={renderCustomizedLabel} // Usar etiqueta personalizada
+                          labelLine={true}
+                        >
                           {metrics.chartDataTipo.map((entry, index) => {
                             let color = '#cbd5e1'; 
                             if (entry.name === 'PREVENTIVO') color = COLORS.PREV;
@@ -426,7 +524,7 @@ export default function MaintenanceDashboard() {
                           })}
                         </Pie>
                         <RechartsTooltip formatter={(value) => formatCurrency(value)} contentStyle={{borderRadius:'8px'}} />
-                        <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-slate-600 font-medium ml-1">{value}</span>} />
+                        <Legend verticalAlign="bottom" height={36} iconType="circle" />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -512,9 +610,14 @@ export default function MaintenanceDashboard() {
               ) : <div className="h-80 flex items-center justify-center text-slate-400">Sin datos</div>}
             </Card>
 
-             {/* MODALES PARA VISTA COMPLETA */}
-             <FullScreenModal isOpen={modalOpen === 'API'} onClose={() => setModalOpen(null)} title="Desglose Completo: Inversiones (API)">
-                <div style={{ height: Math.max(600, metrics.sortedApi.length * 40) }}>
+             {/* MODALES PARA VISTA COMPLETA (Con botón de descarga) */}
+             <FullScreenModal 
+                isOpen={modalOpen === 'API'} 
+                onClose={() => setModalOpen(null)} 
+                title="Desglose Completo: Inversiones (API)"
+                contentId="modal-chart-api"
+             >
+                <div style={{ height: Math.max(600, metrics.sortedApi.length * 40) }} id="modal-chart-api">
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={metrics.sortedApi} layout="vertical" margin={{top:20, right:100, left:20, bottom:20}}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0"/>
@@ -529,8 +632,13 @@ export default function MaintenanceDashboard() {
                 </div>
              </FullScreenModal>
 
-             <FullScreenModal isOpen={modalOpen === 'OPEX'} onClose={() => setModalOpen(null)} title="Desglose Completo: Gastos Operativos (OPEX)">
-                <div style={{ height: Math.max(600, metrics.sortedOpex.length * 40) }}>
+             <FullScreenModal 
+                isOpen={modalOpen === 'OPEX'} 
+                onClose={() => setModalOpen(null)} 
+                title="Desglose Completo: Gastos Operativos (OPEX)"
+                contentId="modal-chart-opex"
+             >
+                <div style={{ height: Math.max(600, metrics.sortedOpex.length * 40) }} id="modal-chart-opex">
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={metrics.sortedOpex} layout="vertical" margin={{top:20, right:100, left:20, bottom:20}}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0"/>
@@ -545,8 +653,13 @@ export default function MaintenanceDashboard() {
                 </div>
              </FullScreenModal>
 
-             <FullScreenModal isOpen={modalOpen === 'RESP'} onClose={() => setModalOpen(null)} title="Vista Completa: Gasto por Responsable">
-                <div className="h-[600px]">
+             <FullScreenModal 
+                isOpen={modalOpen === 'RESP'} 
+                onClose={() => setModalOpen(null)} 
+                title="Vista Completa: Gasto por Responsable"
+                contentId="modal-chart-resp"
+             >
+                <div className="h-[600px]" id="modal-chart-resp">
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={metrics.chartDataResponsable} margin={{ top: 40, right: 30, left: 20, bottom: 50 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -567,8 +680,8 @@ export default function MaintenanceDashboard() {
 
         {view === 'entry' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-right duration-500">
+            {/* ... Resto del componente de entrada ... */}
             <div className="lg:col-span-1 space-y-6">
-              {/* COMPONENTE DE PEGAR DATOS */}
               <Card className="p-6 bg-blue-50 border-blue-200">
                  <h3 className="text-sm font-bold text-blue-900 mb-2 flex items-center uppercase">
                   <Clipboard className="mr-2 text-blue-600" size={18}/> Pegar Datos Masivos
@@ -588,7 +701,6 @@ export default function MaintenanceDashboard() {
                 </button>
               </Card>
 
-              {/* COMPONENTE MANUAL */}
               <Card className="p-6 border-t-4 border-emerald-500">
                 <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center uppercase">
                   <PlusCircle className="mr-2 text-emerald-500" size={18}/> Registro Manual
