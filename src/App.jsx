@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LabelList 
 } from 'recharts';
 import { 
-  PlusCircle, Trash2, TrendingUp, Activity, LayoutDashboard, Table, CheckCircle, Clipboard, RefreshCw, DollarSign, Maximize2, X, Download, Calendar, ChevronLeft, ChevronRight, Filter, ChevronDown, Pencil
+  PlusCircle, Trash2, TrendingUp, Activity, LayoutDashboard, Table, CheckCircle, Clipboard, RefreshCw, DollarSign, Maximize2, X, Download, Calendar, ChevronLeft, ChevronRight, Filter, ChevronDown, Pencil, Maximize, Minimize
 } from 'lucide-react';
 
 // --- Componentes UI Atómicos ---
@@ -286,6 +286,8 @@ export default function App() {
   
   // Estado para gestión UI (Ocultar/Mostrar Formularios)
   const [showForms, setShowForms] = useState(false);
+  // Estado para modo Compacto de Planeación
+  const [isCompactMode, setIsCompactMode] = useState(false);
   
   // Estados para Alertas y Confirmaciones
   const [toastMsg, setToastMsg] = useState('');
@@ -320,7 +322,7 @@ export default function App() {
     if (view === 'planning' && tableScrollRef.current && tableScrollRef.current.firstChild) {
       setTableScrollWidth(tableScrollRef.current.firstChild.scrollWidth);
     }
-  }, [view, data, planningDate, expandedRows, filterResponsable]);
+  }, [view, data, planningDate, expandedRows, filterResponsable, isCompactMode]);
 
   const handleTopScroll = () => {
     if (tableScrollRef.current && topScrollRef.current) {
@@ -605,11 +607,11 @@ export default function App() {
             <button onClick={() => setView('dashboard')} className={`flex items-center px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>
                 <LayoutDashboard size={16} className="mr-2"/> Dashboard
             </button>
-            <button onClick={() => setView('entry')} className={`flex items-center px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'entry' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>
-                <Table size={16} className="mr-2"/> Gestión
-            </button>
             <button onClick={() => setView('planning')} className={`flex items-center px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'planning' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>
                 <Calendar size={16} className="mr-2"/> Planeación
+            </button>
+            <button onClick={() => setView('entry')} className={`flex items-center px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'entry' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>
+                <Table size={16} className="mr-2"/> Gestión
             </button>
           </nav>
         </div>
@@ -813,14 +815,29 @@ export default function App() {
           <div className="space-y-6 animate-in fade-in duration-500">
             
             <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-               <h2 className="text-2xl font-bold text-slate-800 flex items-center">
-                 <Calendar className="mr-3 text-indigo-600" /> Planeación de Mantenimiento
-               </h2>
-               <p className="text-slate-500 text-sm mt-1 mb-6">
-                   Línea Gantt general (Solo lectura). <b>Haz clic en una barra azul</b> para ver los turnos correspondientes.
-               </p>
+               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                 <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                   <Calendar className="mr-3 text-indigo-600" /> Planeación de Mantenimiento
+                 </h2>
+                 
+                 {/* Botones de Vista (Detalle vs Compacta) */}
+                 <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
+                    <button 
+                      onClick={() => setIsCompactMode(false)}
+                      className={`flex items-center px-4 py-1.5 text-xs font-bold rounded-md transition-all ${!isCompactMode ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                    >
+                      <Maximize size={14} className="mr-1.5"/> Versión Detalle
+                    </button>
+                    <button 
+                      onClick={() => setIsCompactMode(true)}
+                      className={`flex items-center px-4 py-1.5 text-xs font-bold rounded-md transition-all ${isCompactMode ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                    >
+                      <Minimize size={14} className="mr-1.5"/> Versión Compacta
+                    </button>
+                 </div>
+               </div>
 
-               <div className="space-y-5">
+               <div className="space-y-5 mt-6">
                   {/* Filtro por Meses */}
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Navegación por Meses (Año Actual)</span>
@@ -908,19 +925,19 @@ export default function App() {
                    <table className="w-full text-left text-sm border-collapse">
                       <thead>
                         <tr>
-                            <th className="bg-slate-50 border-b border-r border-slate-200 p-4 min-w-[320px] sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] align-bottom">
-                                <div className="text-lg font-black text-indigo-900 capitalize mb-1">
+                            <th className={`bg-slate-50 border-b border-r border-slate-200 sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] align-bottom ${isCompactMode ? 'p-2 min-w-[200px]' : 'p-4 min-w-[320px]'}`}>
+                                <div className={`font-black text-indigo-900 capitalize mb-1 ${isCompactMode ? 'text-sm' : 'text-lg'}`}>
                                     {planningDays[0].toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
                                 </div>
-                                <span className="text-xs font-bold text-slate-500 uppercase">Actividad & Responsable</span>
+                                <span className={`font-bold text-slate-500 uppercase ${isCompactMode ? 'text-[9px]' : 'text-xs'}`}>Actividad & Responsable</span>
                             </th>
                             {planningDays.map((day, i) => (
-                                <th key={i} className="bg-slate-50 border-b border-r border-slate-200 min-w-[120px] text-center p-0 align-bottom">
-                                    <div className="py-3 bg-slate-100 h-full flex flex-col justify-center">
-                                        <span className="block text-xs font-bold text-slate-500 uppercase">
+                                <th key={i} className={`bg-slate-50 border-b border-r border-slate-200 text-center p-0 align-bottom ${isCompactMode ? 'min-w-[70px]' : 'min-w-[120px]'}`}>
+                                    <div className={`bg-slate-100 h-full flex flex-col justify-center ${isCompactMode ? 'py-1' : 'py-3'}`}>
+                                        <span className={`font-bold text-slate-500 uppercase ${isCompactMode ? 'text-[9px]' : 'text-xs block'}`}>
                                             {day.toLocaleDateString('es-CO', { weekday: 'short' })}
                                         </span>
-                                        <span className="block text-xl text-slate-800 font-black mt-1">
+                                        <span className={`text-slate-800 font-black ${isCompactMode ? 'text-sm ml-1 inline-block' : 'text-xl mt-1 block'}`}>
                                             {day.getDate()}
                                         </span>
                                     </div>
@@ -937,27 +954,22 @@ export default function App() {
                              return (
                                 <tr key={item.id} className="hover:bg-slate-50/50 border-b border-slate-100 transition-colors">
                                     <td 
-                                      className="p-4 border-r border-slate-200 bg-white sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] cursor-pointer hover:bg-slate-50"
+                                      className={`border-r border-slate-200 bg-white sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] cursor-pointer hover:bg-slate-50 ${isCompactMode ? 'p-1 px-2' : 'p-4'}`}
                                       onClick={() => toggleRowExpanded(item.id)}
                                       title="Clic para expandir/contraer turnos"
                                     >
-                                        <div className="flex items-start">
-                                            <button className="mr-3 mt-0.5 text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded hover:bg-indigo-50">
-                                                {isExpanded ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}
+                                        <div className={`flex ${isCompactMode ? 'items-center' : 'items-start'}`}>
+                                            <button className={`text-slate-400 hover:text-indigo-600 transition-colors rounded hover:bg-indigo-50 ${isCompactMode ? 'mr-1' : 'mr-3 p-1 mt-0.5'}`}>
+                                                {isExpanded ? <ChevronDown size={isCompactMode ? 12 : 18}/> : <ChevronRight size={isCompactMode ? 12 : 18}/>}
                                             </button>
-                                            <div className="flex-1">
-                                                <div className="font-bold text-slate-800 text-xs mb-1 line-clamp-2" title={item.actividad}>
+                                            <div className={`flex-1 ${isCompactMode ? 'flex items-center justify-between gap-2 overflow-hidden' : ''}`}>
+                                                <div className={`font-bold text-slate-800 ${isCompactMode ? 'text-[9px] truncate' : 'text-xs mb-1 line-clamp-2'}`} title={item.actividad}>
                                                     {item.actividad}
                                                 </div>
-                                                <div className="flex items-center justify-between mt-1">
-                                                    <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-bold shadow-sm" style={{ backgroundColor: rowColor }}>
+                                                <div className={`flex items-center ${isCompactMode ? 'shrink-0' : 'justify-between mt-1'}`}>
+                                                    <span className={`text-white px-1.5 rounded-full font-bold shadow-sm ${isCompactMode ? 'text-[8px] py-0 whitespace-nowrap' : 'text-[10px] py-0.5'}`} style={{ backgroundColor: rowColor }}>
                                                         {item.responsable}
                                                     </span>
-                                                    {item.fechaInicio && item.fechaFin && (
-                                                        <span className="text-[9px] text-slate-400 font-medium">
-                                                            {item.fechaInicio.slice(5)} al {item.fechaFin.slice(5)}
-                                                        </span>
-                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -968,21 +980,22 @@ export default function App() {
                                         const isInRange = isDateInRange(dateKey, item.fechaInicio, item.fechaFin) || shifts.length > 0;
                                         
                                         if (isExpanded) {
-                                            // VISTA EXPANDIDA (Turnos granulares de solo lectura)
                                             if (!isInRange && shifts.length === 0) {
-                                                return <td key={i} className="border-r border-slate-200 bg-slate-50/30"></td>;
+                                                return <td key={i} className="border-r border-slate-200 bg-slate-50/30 cursor-pointer" onClick={() => toggleRowExpanded(item.id)}></td>;
                                             }
                                             return (
-                                                <td key={i} className="border-r border-slate-200 p-0 align-top h-full">
-                                                    <div className="grid grid-cols-3 h-full min-h-[50px]">
+                                                <td key={i} className="border-r border-slate-200 p-0 align-top h-full cursor-pointer" onClick={() => toggleRowExpanded(item.id)}>
+                                                    <div className={`grid grid-cols-3 h-full ${isCompactMode ? 'min-h-[22px]' : 'min-h-[50px]'}`}>
                                                         {['T1', 'T2', 'T3'].map(shift => {
                                                             const isActive = shifts.includes(shift);
                                                             return (
                                                                 <div 
                                                                     key={shift} 
-                                                                    className={`transition-all flex items-center justify-center border-r border-white/20 last:border-r-0 ${isActive ? 'bg-emerald-500 shadow-inner' : 'bg-slate-100'}`}
+                                                                    className={`transition-all flex items-center justify-center border-r border-white/50 last:border-r-0 ${isActive ? 'bg-[#fef08a] shadow-inner' : 'bg-slate-100 hover:bg-slate-200'}`}
                                                                 >
-                                                                    <span className={`text-[9px] font-bold ${isActive ? 'text-white' : 'text-slate-400'}`}>{shift}</span>
+                                                                    <span className={`font-bold ${isCompactMode ? 'text-[8px]' : 'text-[9px]'} ${isActive ? 'text-black' : 'text-slate-400'}`}>
+                                                                      {isCompactMode ? shift[1] : shift}
+                                                                    </span>
                                                                 </div>
                                                             );
                                                         })}
@@ -990,17 +1003,18 @@ export default function App() {
                                                 </td>
                                             );
                                         } else {
-                                            // VISTA COLAPSADA (Línea Gantt Continua interactiva)
+                                            const barColor = filterResponsable === '' ? rowColor : '#3b82f6';
                                             return (
                                                 <td key={i} className="border-r border-slate-100 p-0 h-full relative align-middle">
-                                                    <div className="h-[50px] w-full flex items-center cursor-pointer hover:bg-slate-50" onClick={() => toggleRowExpanded(item.id)}>
+                                                    <div className={`w-full flex items-center cursor-pointer hover:bg-slate-50 ${isCompactMode ? 'h-[22px]' : 'h-[50px]'}`} onClick={() => toggleRowExpanded(item.id)}>
                                                         {isInRange ? (
                                                             <div 
-                                                              className="h-6 w-full bg-blue-500 hover:bg-blue-600 transition-colors shadow-sm rounded-sm" 
+                                                              className={`w-full transition-colors shadow-sm rounded-sm hover:opacity-80 ${isCompactMode ? 'h-3' : 'h-6'}`} 
+                                                              style={{ backgroundColor: barColor }}
                                                               title="Clic para desglosar turnos"
                                                             ></div>
                                                         ) : (
-                                                            <div className="h-6 w-full transition-colors"></div>
+                                                            <div className={`w-full transition-colors ${isCompactMode ? 'h-3' : 'h-6'}`}></div>
                                                         )}
                                                     </div>
                                                 </td>
@@ -1018,7 +1032,7 @@ export default function App() {
                 </div>
                 <div className="bg-slate-50 p-3 border-t border-slate-200 flex items-center justify-end text-xs text-slate-500 space-x-6">
                     <div className="flex items-center"><div className="w-4 h-4 bg-blue-500 mr-2 rounded"></div> Periodo General</div>
-                    <div className="flex items-center"><div className="w-4 h-4 bg-emerald-500 mr-2 rounded"></div> Turno Asignado</div>
+                    <div className="flex items-center"><div className="w-4 h-4 bg-[#fef08a] border border-yellow-300 mr-2 rounded"></div> Turno Asignado</div>
                     <div className="flex items-center"><div className="w-4 h-4 bg-slate-100 border border-slate-200 mr-2 rounded"></div> Sin Asignar</div>
                 </div>
             </Card>
