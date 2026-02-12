@@ -3,10 +3,10 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LabelList 
 } from 'recharts';
 import { 
-  PlusCircle, Trash2, TrendingUp, Activity, FileText, LayoutDashboard, Table, AlertTriangle, CheckCircle, Upload, Clipboard, RefreshCw, Briefcase, DollarSign, Maximize2, X, Download
+  PlusCircle, Trash2, TrendingUp, Activity, LayoutDashboard, Table, CheckCircle, Clipboard, RefreshCw, DollarSign, Maximize2, X, Download, Calendar, ChevronLeft, ChevronRight, Filter, ChevronDown, Pencil
 } from 'lucide-react';
 
-// --- Componentes UI ---
+// --- Componentes UI Atómicos ---
 
 const Card = ({ children, className = "" }) => (
   <div className={`bg-white rounded-lg shadow-sm border border-slate-200 ${className}`}>
@@ -27,41 +27,26 @@ const KpiCard = ({ title, value, subtext, icon: Icon, colorClass, borderClass })
   </Card>
 );
 
-// --- Función de descarga de gráfico ---
+// --- Funciones de Utilidad ---
+
 const downloadChartAsPng = (elementId, fileName) => {
   const svgElement = document.querySelector(`#${elementId} svg`);
-  if (!svgElement) {
-    alert("No se encontró el gráfico para descargar.");
-    return;
-  }
-
-  // Serializar el SVG
+  if (!svgElement) return;
   const serializer = new XMLSerializer();
   const svgString = serializer.serializeToString(svgElement);
-  
-  // Crear un canvas
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   const img = new Image();
-
-  // Obtener dimensiones reales del SVG para el canvas
   const svgRect = svgElement.getBoundingClientRect();
-  canvas.width = svgRect.width + 40; // Margen extra
+  canvas.width = svgRect.width + 40; 
   canvas.height = svgRect.height + 40;
-
-  // Fondo blanco para que no sea transparente
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
   const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(svgBlob);
-
   img.onload = () => {
-    // Dibujar imagen centrada con un poco de margen
     ctx.drawImage(img, 20, 20);
     const pngUrl = canvas.toDataURL("image/png");
-    
-    // Crear link de descarga
     const downloadLink = document.createElement("a");
     downloadLink.href = pngUrl;
     downloadLink.download = `${fileName}.png`;
@@ -70,16 +55,14 @@ const downloadChartAsPng = (elementId, fileName) => {
     document.body.removeChild(downloadLink);
     URL.revokeObjectURL(url);
   };
-
   img.src = url;
 };
 
-// --- Componente Modal para "Ver Todo" con Descarga ---
 const FullScreenModal = ({ isOpen, onClose, title, children, contentId }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
         <div className="flex justify-between items-center p-6 border-b border-gray-100">
           <h2 className="text-xl font-bold text-slate-800 flex items-center">
             <Activity className="mr-2 text-blue-600" size={24}/>
@@ -88,7 +71,7 @@ const FullScreenModal = ({ isOpen, onClose, title, children, contentId }) => {
           <div className="flex space-x-2">
             <button 
               onClick={() => downloadChartAsPng(contentId, title.replace(/\s+/g, '_'))}
-              className="flex items-center px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium text-sm"
+              className="flex items-center px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium text-sm"
               title="Descargar Gráfico como PNG"
             >
               <Download size={18} className="mr-2"/> Descargar PNG
@@ -108,16 +91,12 @@ const FullScreenModal = ({ isOpen, onClose, title, children, contentId }) => {
   );
 };
 
-// --- Renderizado de Etiquetas Personalizadas para Pie Chart ---
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
   const RADIAN = Math.PI / 180;
-  // Aumentar radio para empujar texto hacia afuera
   const radius = outerRadius + 30; 
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
   const textAnchor = x > cx ? 'start' : 'end';
-
-  // Formato moneda
   const formattedValue = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
 
   return (
@@ -127,142 +106,265 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
   );
 };
 
-// --- COLORES CORPORATIVOS ---
-const COLORS = {
-  API: '#1e3a8a',    // Azul Marino (Inversión)
-  OPEX: '#64748b',   // Gris Pizarra (Gasto)
-  PREV: '#10b981',   // Esmeralda (Preventivo)
-  CORR: '#ef4444',   // Rojo (Correctivo)
-  IMP: '#f59e0b',    // Ambar (Mejora)
-  BARS: ['#1e40af', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'] // Escala de azules
+const determineTipo = (val) => {
+  const str = String(val || '').toUpperCase().trim();
+  if (!str) return '';
+  if (str.includes('PREVENTIVO')) return 'PREVENTIVO';
+  if (str.includes('CORRECTIVO')) return 'CORRECTIVO';
+  if (str.includes('MEJORA')) return 'MEJORA';
+  return 'PREVENTIVO'; 
 };
 
-// --- DATOS INICIALES COMPLETOS ---
-const initialData = [
-  { id: 1, actividad: "INSTALACIÓN DE BOMBA DE VACIO DE CHILE", monto: 100000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 2, actividad: "LUCERNALIAS DE TECHO DE MP1 CON CORROSIÓN", monto: 83454.14, concepto: "OPEX", responsable: "INFRAESTRUCTURA", tipo: "CORRECTIVO" },
-  { id: 3, actividad: "TPM--SERV.VOITH CAJA DE ENTRADA MP1", monto: 62000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 4, actividad: "MTTO SUB ESTACIONES", monto: 56210.00, concepto: "API", responsable: "ELECTRICO", tipo: "PREVENTIVO" },
-  { id: 5, actividad: "REDUCTORES (Pulper + otros)", monto: 54000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 6, actividad: "MTTO 1A REDUCTOR PULPER PP1", monto: 50000.00, concepto: "API", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 7, actividad: "TANQUES AIRE - VAPOR", monto: 31788.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 8, actividad: "MTTO 1A CALDERA 5", monto: 30000.00, concepto: "API", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 9, actividad: "TRABAJOS VARIOS EN INSTRUMENTACIÓN", monto: 27300.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 10, actividad: "MTTO 2A POZO AGUA N°05", monto: 16326.30, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 11, actividad: "REPARACIÓN DE TECHO MP1 LADO MEZANINE", monto: 15000.00, concepto: "OPEX", responsable: "INFRAESTRUCTURA", tipo: "CORRECTIVO" },
-  { id: 12, actividad: "MTTO 1A CILINDRO YANKEE MP1", monto: 14000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 13, actividad: "TPM INST. MEDIDOR DE FLUJO DE GAS", monto: 14000.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "MEJORA" },
-  { id: 14, actividad: "MTTO 1A RODILLO SUCCION", monto: 12000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 15, actividad: "TPM-CAMBIO DE TUBERIA CONDUIT TECHO MP", monto: 10500.00, concepto: "OPEX", responsable: "INFRAESTRUCTURA", tipo: "CORRECTIVO" },
-  { id: 16, actividad: "MTTO CAPOTA", monto: 7000.00, concepto: "API", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 17, actividad: "CAMBIO DE GRASAS Y LUBRICANTES", monto: 7000.00, concepto: "OPEX", responsable: "PREDICTIVO", tipo: "PREVENTIVO" },
-  { id: 18, actividad: "TPM F SERVER SIEMENS EST. CONTROL 1", monto: 6000.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "CORRECTIVO" },
-  { id: 19, actividad: "CAMBIO DE ROTOR Y CRIBA DE LA PERA", monto: 5000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 20, actividad: "MANTENIMIENTO VALVULAS", monto: 5000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 21, actividad: "MANTENIMIENTO CARDANES", monto: 4000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 22, actividad: "TPM R CORROSION DE ESTRUCTURA 120RTU151", monto: 4000.00, concepto: "OPEX", responsable: "INFRAESTRUCTURA", tipo: "CORRECTIVO" },
-  { id: 23, actividad: "TPM R CORROSION DE ESTRUCTURA 120RTU152", monto: 4000.00, concepto: "OPEX", responsable: "INFRAESTRUCTURA", tipo: "CORRECTIVO" },
-  { id: 24, actividad: "MTTO 2A PREVENTIVO RED AEREA 22.9KV", monto: 3000.00, concepto: "API", responsable: "ELECTRICO", tipo: "PREVENTIVO" },
-  { id: 25, actividad: "MTTO 3M DAMPER CAPOTA MP1", monto: 3000.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 26, actividad: "LAVADO QUIMICO BOMBAS VACIO", monto: 3000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 27, actividad: "MANTTO SEMESTRAL SISTEMA PESAJE PULPER", monto: 3000.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 28, actividad: "MTTO CORRECTIVO 1A DRIVE DR100", monto: 2500.00, concepto: "OPEX", responsable: "ELECTRICO", tipo: "PREVENTIVO" },
-  { id: 29, actividad: "MTTO CORRECTIVO 1A DRIVE DR200", monto: 2500.00, concepto: "OPEX", responsable: "ELECTRICO", tipo: "PREVENTIVO" },
-  { id: 30, actividad: "MTTO 1A MCC1 MP1", monto: 2500.00, concepto: "API", responsable: "ELECTRICO", tipo: "PREVENTIVO" },
-  { id: 31, actividad: "MTTO 1A MCC2 MP1", monto: 2500.00, concepto: "API", responsable: "ELECTRICO", tipo: "PREVENTIVO" },
-  { id: 32, actividad: "CAMBIO DE ENCHAQUETADO ZONA DE MESANINE", monto: 2500.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 33, actividad: "PRUEBAS ELECTRICAS CABLES DE MEDIA TENSIÓN", monto: 2000.00, concepto: "API", responsable: "ELECTRICO", tipo: "CORRECTIVO" },
-  { id: 34, actividad: "TPM-FALLA MOTOR PERDIDA DE AISLAMIENTO", monto: 2000.00, concepto: "OPEX", responsable: "ELECTRICO", tipo: "CORRECTIVO" },
-  { id: 35, actividad: "MTTO 6M EXTRACTOR VAHO VE-95 MP1", monto: 2000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 36, actividad: "CAMBIO CHUMACERAS HVAC", monto: 2000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 37, actividad: "TPM CALIB MEDIDOR SALIDA VAPOR FIT X4310", monto: 2000.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 38, actividad: "TPM CALIB. MEDIDOR FLUJO DE VAPOR FT 516", monto: 2000.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 39, actividad: "TPM-CAMBIO DE PLANCHA TRANSP. DE FARDOS", monto: 1800.00, concepto: "OPEX", responsable: "INFRAESTRUCTURA", tipo: "CORRECTIVO" },
-  { id: 40, actividad: "MTTO 1A VENTILADORES", monto: 1500.00, concepto: "OPEX", responsable: "ELECTRICO", tipo: "PREVENTIVO" },
-  { id: 41, actividad: "TPM-FALTA GUARDA TORNILLO DE RECHAZO", monto: 1500.00, concepto: "OPEX", responsable: "INFRAESTRUCTURA", tipo: "CORRECTIVO" },
-  { id: 42, actividad: "MANTTO PREVENTIVO PISTONES NEUMATICO", monto: 1500.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 43, actividad: "TPM. MIGRACION SIST. DE CONTROL", monto: 1300.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "CORRECTIVO" },
-  { id: 44, actividad: "CAMBIO DE RECUBRIMIENTO DE RODILLOS - CAVAL", monto: 1000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 45, actividad: "MTTO 5A TANQUE FLASH PTER", monto: 1000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 46, actividad: "MTTO 1A ENSAYOS END QUEMADOR 120-VE-01", monto: 1000.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 47, actividad: "TPM-AVERIA LAMPARA DE SEÑALIZACION CCM", monto: 500.00, concepto: "OPEX", responsable: "ELECTRICO", tipo: "CORRECTIVO" },
-  { id: 48, actividad: "TPM-A-PRED_DESALINEAMIENT_EJE_120BV30 (PRED - INFR)", monto: 500.00, concepto: "OPEX", responsable: "PREDICTIVO", tipo: "CORRECTIVO" },
-  { id: 49, actividad: "P TPM-A-PRED_DESALINEAMIENTO_EJE_120BV31 (PRED - INFR)", monto: 500.00, concepto: "OPEX", responsable: "PREDICTIVO", tipo: "CORRECTIVO" },
-  { id: 50, actividad: "P TPM-A-PRED_DESALINEAMIENTO_EJE_120BV32 (PRED - INFR)", monto: 500.00, concepto: "OPEX", responsable: "PREDICTIVO", tipo: "CORRECTIVO" },
-  { id: 51, actividad: "F TPMR-TANQUE-ROMPE-PURGA-LINEA-PICADURA", monto: 500.00, concepto: "OPEX", responsable: "INFRAESTRUCTURA", tipo: "CORRECTIVO" },
-  { id: 52, actividad: "MANTTO MENSUAL DE SENSORES", monto: 500.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 53, actividad: "MANTENIMIENTO PREVENTIVO PISTON NEUMATIC", monto: 500.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 54, actividad: "CAMB 4A REPETID PROFI TABL 120ABC21ES22", monto: 500.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 55, actividad: "CAMB 4A REPETID PROFI TABL 120ABC11ES11", monto: 500.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 56, actividad: "LIMP QUIMICA TUBOS AGUA (PASIVADO)", monto: 500.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 57, actividad: "MANTTO SEMESTRAL TABLEROS NEUMATICOS PP1", monto: 200.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 58, actividad: "MTTO 6M REGADERA RODILLO SUCCION", monto: 200.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 59, actividad: "MTTO 2A BUZONES MT 22.9KV", monto: 100.00, concepto: "OPEX", responsable: "ELECTRICO", tipo: "PREVENTIVO" },
-  { id: 60, actividad: "MTTO 2M PALPADORES PRENSA LODOS 1", monto: 100.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 61, actividad: "MTTO 2M PALPADORES PRENSA LODOS 2", monto: 100.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 62, actividad: "MTTO TRAFOS", monto: 0.00, concepto: "API", responsable: "ELECTRICO", tipo: "PREVENTIVO" },
-  { id: 63, actividad: "RODILLERIA", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 64, actividad: "MTTO 2A CILIND HIDRAU LEVANT L.A NIPCOFL (INSPECCION)", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 65, actividad: "TPM-A-PRED_DESGASTE_RODA_CHU_DIABOLO", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 66, actividad: "MTTO 1A DAF PTAR", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 67, actividad: "MTTO 2M/1A CHORRO PASA PUNTA MP1", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 68, actividad: "MTTO 1M CHILLING SHOWER MP1", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 69, actividad: "MTTO 3M SISTEMA MECANICO QCS MP1", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 70, actividad: "MTTO 4M SVECOM MP1", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 71, actividad: "MTTO 4M MECA ENFAJILLADORA MP1", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 72, actividad: "MONTAJE DE ACOPLE DE BOMBA DE VACIO 32", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 73, actividad: "P TPM-A-PRED AGITADOR 120-AG-11B", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 74, actividad: "INSPECCION IMPULSOR FAM PUM", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "PREVENTIVO" },
-  { id: 75, actividad: "TPM-MTTO CORREC  CALIB. VV REGULADORA GN", monto: 0.00, concepto: "OPEX", responsable: "MECANICO", tipo: "CORRECTIVO" },
-  { id: 76, actividad: "ALINEAMIENTO DE RODILLO SUCCIÓN", monto: 0.00, concepto: "OPEX", responsable: "PREDICTIVO", tipo: "CORRECTIVO" },
-  { id: 77, actividad: "MANTTO ROTAMETRO DEL ABLANDADOR", monto: 0.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 78, actividad: "MANTTO SIST TANQUE CONDENSADO CALDERA", monto: 0.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 79, actividad: "MANTTO 6M VALVULA CONTROL", monto: 0.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 80, actividad: "MANTTO MENSUAL DE SENSORES", monto: 0.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 81, actividad: "MANTTO MENSUAL DE SENSORES", monto: 0.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 82, actividad: "MANTTO SISTEMA COMBUSTIBLE Y QUEMADOR", monto: 0.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 83, actividad: "MTTO 6M VALVULAS ON/OFF REGADERA TELA", monto: 0.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "PREVENTIVO" },
-  { id: 84, actividad: "PRUEBAS DE INTERLOCK", monto: 0.00, concepto: "OPEX", responsable: "INSTRUMENTACIÓN", tipo: "CORRECTIVO" }
+// --- Colores Consistentes ---
+const COLORS = {
+  API: '#1e3a8a',    
+  OPEX: '#64748b',   
+  PREV: '#10b981',   
+  CORR: '#ef4444',   
+  IMP: '#f59e0b',    
+};
+
+const RESPONSABLE_COLORS = [
+  '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', 
+  '#06b6d4', '#f97316', '#14b8a6', '#ec4899', '#6366f1'
 ];
 
-export default function MaintenanceDashboard() {
-  const [data, setData] = useState(initialData);
+const getResponsableColor = (name, uniqueList) => {
+  const idx = uniqueList.indexOf(name);
+  if (idx === -1) return '#94a3b8';
+  return RESPONSABLE_COLORS[idx % RESPONSABLE_COLORS.length];
+};
+
+const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+// --- Base de Datos Interna Creada Desde Tu Texto ---
+const rawDatabase = `MTTO 1A RODILLO SUCCION-$12,000.00-OPEX-MECANICO-PREVENTIVO-22/06/2026-T1-24/06/2026-T1
+MTTO CAPOTA-$7,000.00-API-MECANICO-PREVENTIVO-23/06/2026-T1-25/06/2026-T2
+MTTO 1A CILINDRO YANKEE MP1-$14,000.00-OPEX-MECANICO-PREVENTIVO-23/06/2026-T1-24/06/2026-T3
+MTTO 1A CALDERA 5-$30,000.00-API-MECANICO-PREVENTIVO-22/06/2026-T1-28/06/2026-T2
+MTTO 2A POZO AGUA N°05-$16,326.30-OPEX-MECANICO-PREVENTIVO-22/06/2026-T1-24/06/2026-T2
+MTTO 1A  PULPER PP1-$50,000.00-API-MECANICO-PREVENTIVO-22/06/2026-T1-25/06/2026-T3
+TANQUES AIRE - VAPOR-$31,788.00-OPEX-MECANICO-PREVENTIVO-22/06/2026-T1-25/06/2026-T2
+RODILLERIA-$--OPEX-MECANICO-PREVENTIVO-24/06/2026-T1-25/06/2026-T3
+LAVADO QUIMICO BOMBAS VACIO-$3,000.00-OPEX-MECANICO-CORRECTIVO-22/06/2026-T1-22/06/2026-T3
+REDUCTORES (Pulper + otros)-$54,000.00-OPEX-MECANICO-CORRECTIVO-23/06/2026-T1-24/06/2026-T3
+MTTO 6M EXTRACTOR VAHO VE-95 MP1-$2,000.00-OPEX-MECANICO-PREVENTIVO-24/06/2026-T1-24/06/2026-T2
+TPM- SERV. VOITH CAJA DE ENTRADA MP1-$62,000.00-OPEX-MECANICO-CORRECTIVO-22/06/2026-T2-25/06/2026-T2
+CAMBIO DE ROTOR Y CRIBA DE LA PERA-$5,000.00-OPEX-MECANICO-CORRECTIVO-23/06/2026-T1-24/06/2026-T3
+MANTENIMIENTO VALVULAS-$5,000.00-OPEX-MECANICO-PREVENTIVO-22/06/2026-T1-24/06/2026-T3
+CAMBIO CHUMACERAS HVAC-$2,000.00-OPEX-MECANICO-CORRECTIVO-22/06/2026-T1-22/06/2026-T2
+MANTENIMIENTO CARDANES-$4,000.00-OPEX-MECANICO-PREVENTIVO-23/06/2026-T1-24/06/2026-T3
+TPM-A-PRED_DESGASTE_RODA_CHU_DIABOLO-$--OPEX-MECANICO-CORRECTIVO-24/06/2026-T1-24/06/2026-T1
+MTTO 1A DAF PTAR-$--OPEX-MECANICO-PREVENTIVO-24/06/2026-T2-24/06/2026-T3
+MTTO 2M/1A CHORRO PASA PUNTA MP1-$--OPEX-MECANICO-PREVENTIVO-25/06/2026-T1-25/06/2026-T1
+MTTO 1M CHILLING SHOWER MP1-$--OPEX-MECANICO-PREVENTIVO-25/06/2026-T1-25/06/2026-T1
+MTTO 3M SISTEMA MECANICO QCS MP1-$--OPEX-MECANICO-PREVENTIVO-25/06/2026-T1-25/06/2026-T1
+MTTO 4M SVECOM MP1-$--OPEX-MECANICO-PREVENTIVO-25/06/2026-T2-25/06/2026-T3
+MTTO 4M MECA ENFAJILLADORA MP1-$--OPEX-MECANICO-PREVENTIVO-25/06/2026-T2-25/06/2026-T3
+MONTAJE DE ACOPLE DE BOMBA DE VACIO 32-$--OPEX-MECANICO-CORRECTIVO-22/06/2026-T1-22/06/2026-T2
+P TPM-A-PRED AGITADOR 120-AG-11B-$--OPEX-MECANICO-CORRECTIVO-25/06/2026-T1-25/06/2026-T2
+INSPECCION IMPULSOR FAM PUM-$--OPEX-MECANICO-PREVENTIVO-24/06/2026-T3-25/06/2026-T1
+TPM-MTTO CORREC  CALIB. VV REGULADORA GN-$--OPEX-MECANICO-CORRECTIVO-23/06/2026-T1-23/06/2026-T3
+CAMBIO DE RECUBRIMIENTO DE RODILLOS - CAVAL-$1,000.00-OPEX-MECANICO-CORRECTIVO-23/06/2026-T1-23/06/2026-T2
+CAMBIO DE ENCHAQUETADO ZONA DE MESANINE-$2,500.00-OPEX-MECANICO-CORRECTIVO-24/06/2026-T1-24/06/2026-T3
+MTTO 5A TANQUE FLASH PTER-$1,000.00-OPEX-MECANICO-PREVENTIVO-22/06/2026-T1-22/06/2026-T2
+MTTO 1A ENSAYOS END QUEMADOR 120-VE-01-$1,000.00-OPEX-MECANICO-PREVENTIVO-23/06/2026-T1-23/06/2026-T2
+INSTALACIÓN DE BOMBA DE VACIO DE CHILE-$100,000.00-OPEX-MECANICO-CORRECTIVO-22/06/2026-T1-26/06/2026-T3
+MTTO  SUB ESTACIONES-$56,210.00-API-ELECTRICO-PREVENTIVO-23/06/2026-T1-23/06/2026-T3
+MTTO TRAFOS-$--API-ELECTRICO-PREVENTIVO-23/06/2026-T1-23/06/2026-T3
+MTTO 2A PREVENTIVO RED AEREA 22.9KV-$3,000.00-API-ELECTRICO-PREVENTIVO-23/06/2026-T1-23/06/2026-T3
+MTTO CORRECTIVO 1A DRIVE DR100-$2,500.00-OPEX-ELECTRICO-PREVENTIVO-22/06/2026-T1-23/06/2026-T3
+MTTO CORRECTIVO 1A DRIVE DR200-$2,500.00-OPEX-ELECTRICO-PREVENTIVO-23/06/2026-T1-23/06/2026-T3
+MTTO 1A MCC1 MP1-$2,500.00-API-ELECTRICO-PREVENTIVO-23/06/2026-T1-23/06/2026-T3
+MTTO 1A MCC2 MP1-$2,500.00-API-ELECTRICO-PREVENTIVO-23/06/2026-T1-23/06/2026-T3
+MTTO 1A VENTILADORES-$1,500.00-OPEX-ELECTRICO-PREVENTIVO-22/06/2026-T1-23/06/2026-T2
+MTTO 2A BUZONES MT 22.9KV-$100.00-OPEX-ELECTRICO-PREVENTIVO-24/06/2026-T1-24/06/2026-T2
+PRUEBAS ELECTRICAS CABLES DE MEDIA TENSIÓN-$2,000.00-API-ELECTRICO-CORRECTIVO-23/06/2026-T1-23/06/2026-T3
+TPM-AVERIA LAMPARA DE SEÑALIZACION CCM-$500.00-OPEX-ELECTRICO-CORRECTIVO-24/06/2026-T1-24/06/2026-T1
+TPM-FALLA MOTOR PERDIDA DE AISLAMIENTO-$2,000.00-OPEX-ELECTRICO-CORRECTIVO-25/06/2026-T1-25/06/2026-T1
+MTTO 3M DAMPER CAPOTA MP1-$3,000.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-23/06/2026-T1-24/06/2026-T1
+TPM INST. MEDIDOR DE FLUJO DE GAS-$14,000.00-OPEX-INSTRUMENTACIÓN-MEJORA-22/06/2026-T1-22/06/2026-T1
+TPM F SERVER SIEMENS EST. CONTROL 1-$6,000.00-OPEX-INSTRUMENTACIÓN-CORRECTIVO-22/06/2026-T1-23/06/2026-T2
+TPM CALIB MEDIDOR SALIDA VAPOR FIT X4310-$2,000.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-23/06/2026-T1-23/06/2026-T2
+TPM CALIB. MEDIDOR FLUJO DE VAPOR FT 516-$2,000.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-23/06/2026-T1-23/06/2026-T2
+TPM. MIGRACION SIST. DE CONTROL-$1,300.00-OPEX-INSTRUMENTACIÓN-CORRECTIVO-22/06/2026-T1-24/06/2026-T2
+MANTTO ROTAMETRO DEL ABLANDADOR-$--OPEX-INSTRUMENTACIÓN-PREVENTIVO-23/06/2026-T1-23/06/2026-T2
+MANTTO SIST TANQUE CONDENSADO CALDERA-$--OPEX-INSTRUMENTACIÓN-PREVENTIVO-23/06/2026-T1-23/06/2026-T2
+MANTTO MENSUAL DE SENSORES-$500.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-23/06/2026-T1-23/06/2026-T2
+MANTTO PREVENTIVO PISTONES NEUMATICO-$1,500.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-23/06/2026-T2-23/06/2026-T2
+MANTTO SEMESTRAL TABLEROS NEUMATICOS PP1-$200.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-23/06/2026-T2-23/06/2026-T3
+MANTTO SEMESTRAL SISTEMA PESAJE PULPER-$3,000.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-22/06/2026-T1-24/06/2026-T2
+TRABAJOS VARIOS EN INSTRUMENTACIÓN-$27,300.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-23/06/2026-T1-24/06/2026-T3
+MANTENIMIENTO PREVENTIVO PISTON NEUMATIC-$500.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-25/06/2026-T1-25/06/2026-T2
+MANTTO 6M VALVULA CONTROL-$--OPEX-INSTRUMENTACIÓN-PREVENTIVO-25/06/2026-T1-25/06/2026-T2
+MANTTO MENSUAL DE SENSORES-$--OPEX-INSTRUMENTACIÓN-PREVENTIVO-25/06/2026-T1-25/06/2026-T2
+MANTTO MENSUAL DE SENSORES-$--OPEX-INSTRUMENTACIÓN-PREVENTIVO-25/06/2026-T1-25/06/2026-T2
+CAMB 4A REPETID PROFI TABL 120ABC21ES22-$500.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-24/06/2026-T1-24/06/2026-T2
+CAMB 4A REPETID PROFI TABL 120ABC11ES11-$500.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-24/06/2026-T1-24/06/2026-T2
+LIMP QUIMICA TUBOS AGUA (PASIVADO)-$500.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-24/06/2026-T1-24/06/2026-T2
+MANTTO SISTEMA COMBUSTIBLE Y QUEMADOR-$--OPEX-INSTRUMENTACIÓN-PREVENTIVO-25/06/2026-T2-25/06/2026-T3
+MTTO 6M REGADERA RODILLO SUCCION-$200.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-25/06/2026-T2-25/06/2026-T3
+MTTO 6M VALVULAS ON/OFF REGADERA TELA-$--OPEX-INSTRUMENTACIÓN-PREVENTIVO-25/06/2026-T2-25/06/2026-T3
+PRUEBAS DE INTERLOCK-$--OPEX-INSTRUMENTACIÓN-CORRECTIVO-25/06/2026-T2-26/06/2026-T1
+MTTO 2M PALPADORES PRENSA LODOS 1-$100.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-24/06/2026-T1-24/06/2026-T3
+MTTO 2M PALPADORES PRENSA LODOS 2-$100.00-OPEX-INSTRUMENTACIÓN-PREVENTIVO-24/06/2026-T1-24/06/2026-T3
+TPM-A-PRED_DESALINEAMIENT_EJE_120BV30 (PRED - INFR)-$500.00-OPEX-PREDICTIVO-CORRECTIVO-23/06/2026-T1-23/06/2026-T2
+P TPM-A-PRED_DESALINEAMIENTO_EJE_120BV31 (PRED - INFR)-$500.00-OPEX-PREDICTIVO-CORRECTIVO-23/06/2026-T1-23/06/2026-T2
+P TPM-A-PRED_DESALINEAMIENTO_EJE_120BV32 (PRED - INFR)-$500.00-OPEX-PREDICTIVO-CORRECTIVO-23/06/2026-T1-23/06/2026-T2
+CAMBIO DE GRASAS Y LUBRICANTES-$7,000.00-OPEX-PREDICTIVO-PREVENTIVO-23/06/2026-T1-23/06/2026-T2
+ALINEAMIENTO DE RODILLO SUCCIÓN-$--OPEX-PREDICTIVO-CORRECTIVO-23/06/2026-T1-23/06/2026-T2
+TPM-CAMBIO DE PLANCHA TRANSP. DE FARDOS-$1,800.00-OPEX-INFRAESTRUCTURA-CORRECTIVO-22/06/2026-T1-22/06/2026-T2
+F TPMR-TANQUE-ROMPE-PURGA-LINEA-PICADURA-$500.00-OPEX-INFRAESTRUCTURA-CORRECTIVO-23/06/2026-T1-23/06/2026-T2
+TPM-FALTA GUARDA TORNILLO DE RECHAZO-$1,500.00-OPEX-INFRAESTRUCTURA-CORRECTIVO-23/06/2026-T2-23/06/2026-T3
+TPM R CORROSION DE ESTRUCTURA 120RTU151-$4,000.00-OPEX-INFRAESTRUCTURA-CORRECTIVO-22/06/2026-T1-24/06/2026-T2
+TPM R CORROSION DE ESTRUCTURA 120RTU152-$4,000.00-OPEX-INFRAESTRUCTURA-CORRECTIVO-24/06/2026-T1-26/06/2026-T3
+TPM-CAMBIO DE TUBERIA CONDUIT TECHO MP-$10,500.00-OPEX-INFRAESTRUCTURA-CORRECTIVO-22/06/2026-T1-26/06/2026-T2
+LUCERNALIAS DE TECHO DE MP1 CON CORROSIÓN-$83,454.14-OPEX-INFRAESTRUCTURA-CORRECTIVO-22/06/2026-T1-27/06/2026-T3
+REPARACIÓN DE TECHO MP1 LADO MEZANINE-$15,000.00-OPEX-INFRAESTRUCTURA-CORRECTIVO-22/06/2026-T1-26/06/2026-T3`;
+
+const loadInitialData = () => {
+  const rows = rawDatabase.trim().split('\n');
+  return rows.map((row, index) => {
+      let cols = row.split('-');
+      if (cols.length < 9) return null; 
+
+      const len = cols.length;
+      const turnoF = cols[len - 1].trim().toUpperCase();
+      const fechaF = cols[len - 2].trim();
+      const turnoI = cols[len - 3].trim().toUpperCase();
+      const fechaI = cols[len - 4].trim();
+      const tipoStr = cols[len - 5].trim();
+      const responsable = cols[len - 6].trim().toUpperCase();
+      const concepto = cols[len - 7].trim().toUpperCase();
+      const montoStr = cols[len - 8].trim();
+      const actividad = cols.slice(0, len - 8).join('-').trim();
+
+      const monto = parseFloat(montoStr.replace(/[^0-9.-]/g, '')) || 0;
+      const tipo = determineTipo(tipoStr) || 'PREVENTIVO';
+      
+      const parsedFechaI = fechaI ? fechaI.split('/').reverse().join('-') : '';
+      const parsedFechaF = fechaF ? fechaF.split('/').reverse().join('-') : '';
+
+      const newCronograma = {};
+      if (parsedFechaI && parsedFechaF) {
+          const start = new Date(parsedFechaI + 'T00:00:00');
+          const end = new Date(parsedFechaF + 'T00:00:00');
+          const shiftsArr = ['T1', 'T2', 'T3'];
+
+          if (start <= end) {
+              for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+                  const dStr = dt.toISOString().split('T')[0];
+                  let dailyShifts = [];
+                  if (parsedFechaI === parsedFechaF) {
+                      let sIdx = shiftsArr.indexOf(turnoI);
+                      let eIdx = shiftsArr.indexOf(turnoF);
+                      if (sIdx > eIdx) [sIdx, eIdx] = [eIdx, sIdx]; 
+                      dailyShifts = shiftsArr.slice(sIdx, eIdx + 1);
+                  } else {
+                      if (dStr === parsedFechaI) dailyShifts = shiftsArr.slice(shiftsArr.indexOf(turnoI));
+                      else if (dStr === parsedFechaF) dailyShifts = shiftsArr.slice(0, shiftsArr.indexOf(turnoF) + 1);
+                      else dailyShifts = [...shiftsArr];
+                  }
+                  newCronograma[dStr] = dailyShifts;
+              }
+          }
+      }
+
+      return {
+          id: index + 1, actividad, monto, concepto, responsable, tipo,
+          fechaInicio: parsedFechaI, fechaFin: parsedFechaF, cronograma: newCronograma
+      };
+  }).filter(Boolean);
+};
+
+export default function App() {
+  const [data, setData] = useState(loadInitialData());
   const [view, setView] = useState('dashboard');
   const [pasteData, setPasteData] = useState('');
-  const [modalOpen, setModalOpen] = useState(null); // 'API', 'OPEX', 'RESP'
-  const fileInputRef = useRef(null);
+  const [modalOpen, setModalOpen] = useState(null); 
+  const [expandedRows, setExpandedRows] = useState(new Set()); 
   
+  // Estado para gestión UI (Ocultar/Mostrar Formularios)
+  const [showForms, setShowForms] = useState(false);
+  
+  // Estados para Alertas y Confirmaciones
+  const [toastMsg, setToastMsg] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, message: '', onConfirm: null });
+  
+  // Estado para planeación (Inicializado en Junio 2026)
+  const [planningDate, setPlanningDate] = useState(new Date('2026-06-22T00:00:00'));
+  const [filterResponsable, setFilterResponsable] = useState('');
+  
+  // Referencias para el Scrollbar Superior
+  const topScrollRef = useRef(null);
+  const tableScrollRef = useRef(null);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+
   const [formData, setFormData] = useState({
-    actividad: '',
-    monto: '',
-    concepto: 'OPEX',
-    responsable: '',
-    tipo: 'PREVENTIVO'
+    actividad: '', monto: '', concepto: 'OPEX', responsable: '', tipo: 'PREVENTIVO', fechaInicio: '', fechaFin: '',
+    turnoT1: true, turnoT2: true, turnoT3: true
   });
 
-  // --- Cargar Librería XLSX ---
-  useEffect(() => {
-    if (!window.XLSX) {
-      const script = document.createElement('script');
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-      script.async = true;
-      document.body.appendChild(script);
-      return () => { try { document.body.removeChild(script); } catch (e) {} }
-    }
-  }, []);
+  const formatCurrency = (value) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
 
-  // --- Helpers ---
-  const determineTipo = (val) => {
-    const str = String(val || '').toUpperCase().trim();
-    if (!str) return '';
-    if (str.includes('PREVENTIVO')) return 'PREVENTIVO';
-    if (str.includes('CORRECTIVO')) return 'CORRECTIVO';
-    if (str.includes('MEJORA')) return 'MEJORA';
-    return ''; 
+  // --- Auto-limpieza del Toast ---
+  useEffect(() => {
+    if(toastMsg) {
+      const timer = setTimeout(() => setToastMsg(''), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
+
+  // --- Lógica de Scrollbar Sincronizado ---
+  useEffect(() => {
+    if (view === 'planning' && tableScrollRef.current && tableScrollRef.current.firstChild) {
+      setTableScrollWidth(tableScrollRef.current.firstChild.scrollWidth);
+    }
+  }, [view, data, planningDate, expandedRows, filterResponsable]);
+
+  const handleTopScroll = () => {
+    if (tableScrollRef.current && topScrollRef.current) {
+      tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
+  const handleTableScroll = () => {
+    if (tableScrollRef.current && topScrollRef.current) {
+      topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
+    }
+  };
+
+  // --- Lógica de Fechas (Gantt) ---
+  const getDaysArray = (start, days) => {
+    const arr = [];
+    for (let i = 0; i < days; i++) {
+      const dt = new Date(start); dt.setDate(dt.getDate() + i); arr.push(dt);
+    }
+    return arr;
+  };
+  
+  const formatDateKey = (date) => date.toISOString().split('T')[0];
+  
+  const isDateInRange = (checkDateStr, startDateStr, endDateStr) => {
+    if (!startDateStr || !endDateStr) return false;
+    const check = new Date(checkDateStr + 'T00:00:00');
+    const start = new Date(startDateStr + 'T00:00:00');
+    const end = new Date(endDateStr + 'T00:00:00');
+    return check >= start && check <= end;
+  };
+
+  const handleMonthClick = (monthIndex) => {
+    const currentYear = planningDate.getFullYear();
+    setPlanningDate(new Date(currentYear, monthIndex, 1));
+  };
+
+  const toggleRowExpanded = (id) => {
+      setExpandedRows(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(id)) newSet.delete(id);
+          else newSet.add(id);
+          return newSet;
+      });
   };
 
   // --- Lógica de Negocio ---
@@ -274,22 +376,54 @@ export default function MaintenanceDashboard() {
   const handleAddData = (e) => {
     e.preventDefault();
     if (!formData.actividad || !formData.monto) return;
+
+    let newCronograma = {};
+    const selectedShifts = [];
+    if (formData.turnoT1) selectedShifts.push('T1');
+    if (formData.turnoT2) selectedShifts.push('T2');
+    if (formData.turnoT3) selectedShifts.push('T3');
+
+    if (formData.fechaInicio && formData.fechaFin) {
+        const start = new Date(formData.fechaInicio + 'T00:00:00');
+        const end = new Date(formData.fechaFin + 'T00:00:00');
+        for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+            newCronograma[dt.toISOString().split('T')[0]] = [...selectedShifts]; 
+        }
+    }
+
     const newItem = {
-      id: Date.now(),
-      actividad: formData.actividad,
-      monto: parseFloat(formData.monto),
-      concepto: formData.concepto.toUpperCase(),
-      responsable: formData.responsable.toUpperCase(),
-      tipo: formData.tipo.toUpperCase()
+      id: Date.now(), actividad: formData.actividad, monto: parseFloat(formData.monto), concepto: formData.concepto.toUpperCase(),
+      responsable: formData.responsable.toUpperCase(), tipo: formData.tipo.toUpperCase(),
+      fechaInicio: formData.fechaInicio, fechaFin: formData.fechaFin, cronograma: newCronograma
     };
-    setData(prev => [...prev, newItem]);
-    setFormData({ actividad: '', monto: '', concepto: 'OPEX', responsable: '', tipo: 'PREVENTIVO' });
+    setData(prev => [newItem, ...prev]);
+    setFormData({ actividad: '', monto: '', concepto: 'OPEX', responsable: '', tipo: 'PREVENTIVO', fechaInicio: '', fechaFin: '', turnoT1: true, turnoT2: true, turnoT3: true });
+    setToastMsg("Registro agregado correctamente.");
   };
 
-  const handleDelete = (id) => setData(prev => prev.filter(item => item.id !== id));
-  const handleClearAll = () => { if (window.confirm("¿Estás seguro de que quieres eliminar TODOS los datos?")) setData([]); };
+  const handleDelete = (id) => {
+     setConfirmDialog({
+       isOpen: true,
+       message: '¿Estás seguro de que deseas eliminar este registro específico?',
+       onConfirm: () => {
+         setData(prev => prev.filter(item => item.id !== id));
+         setToastMsg("Registro eliminado.");
+       }
+     });
+  };
 
-  // --- LÓGICA COPY-PASTE ---
+  const handleClearAll = () => { 
+    setConfirmDialog({
+       isOpen: true,
+       message: '¿Estás seguro de vaciar toda la base de datos? Esta acción no se puede deshacer.',
+       onConfirm: () => {
+         setData([]);
+         setToastMsg("Base de datos limpiada por completo.");
+       }
+    });
+  };
+
+  // --- LÓGICA DE PEGADO MASIVO INTELIGENTE ---
   const handlePasteProcess = () => {
     if (!pasteData.trim()) return;
     const rows = pasteData.trim().split('\n');
@@ -299,143 +433,168 @@ export default function MaintenanceDashboard() {
     rows.forEach((row, index) => {
         let cols = row.split('\t');
         let isHyphen = false;
-        if (cols.length < 2) { cols = row.split('-'); isHyphen = true; }
+        if (cols.length < 2) { 
+            cols = row.split('-'); 
+            isHyphen = true; 
+        }
         if (cols.length < 2) return; 
 
-        let actividad, montoStr, concepto, responsable, tipoStr;
-        if (isHyphen && cols.length > 5) {
-            const lastIdx = cols.length - 1;
-            tipoStr = cols[lastIdx];
-            responsable = cols[lastIdx - 1];
-            concepto = cols[lastIdx - 2];
-            montoStr = cols[lastIdx - 3];
-            actividad = cols.slice(0, lastIdx - 3).join('-');
+        let actividad, montoStr, concepto, responsable, tipoStr, fechaI, turnoI, fechaF, turnoF;
+
+        if (isHyphen && cols.length >= 9) {
+            const len = cols.length;
+            turnoF = cols[len - 1];
+            fechaF = cols[len - 2];
+            turnoI = cols[len - 3];
+            fechaI = cols[len - 4];
+            tipoStr = cols[len - 5];
+            responsable = cols[len - 6];
+            concepto = cols[len - 7];
+            montoStr = cols[len - 8];
+            actividad = cols.slice(0, len - 8).join('-');
         } else {
             actividad = cols[0];
             montoStr = cols[1];
             concepto = cols[2];
             responsable = cols[3];
             tipoStr = cols[4];
+            fechaI = cols[5];
+            turnoI = cols[6];
+            fechaF = cols[7];
+            turnoF = cols[8];
         }
 
         actividad = actividad?.trim();
-        const cleanMontoStr = montoStr?.trim().replace(/[^0-9.-]/g, ''); 
+        const cleanMontoStr = String(montoStr || '').trim().replace(/[^0-9.-]/g, ''); 
         const monto = parseFloat(cleanMontoStr) || 0;
-        concepto = concepto?.trim().toUpperCase() || 'OPEX';
-        responsable = responsable?.trim().toUpperCase() || 'GENERAL';
-        const tipo = determineTipo(tipoStr);
+        concepto = String(concepto || '').trim().toUpperCase() || 'OPEX';
+        responsable = String(responsable || '').trim().toUpperCase() || 'GENERAL';
+        const tipo = determineTipo(tipoStr) || 'PREVENTIVO';
+        
+        const parseDate = (dStr) => {
+            if (!dStr) return '';
+            const match = String(dStr).trim().match(/(\d{2})\/(\d{2})\/(\d{4})/);
+            if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+            const match2 = String(dStr).trim().match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (match2) return match2[0];
+            return '';
+        };
+
+        const parseShift = (sStr) => {
+            if (!sStr) return 'T1';
+            const match = String(sStr).trim().match(/T[1-3]/i);
+            return match ? match[0].toUpperCase() : 'T1';
+        };
+
+        const parsedFechaI = parseDate(fechaI);
+        const parsedTurnoI = parseShift(turnoI);
+        const parsedFechaF = parseDate(fechaF);
+        const parsedTurnoF = parseShift(turnoF);
+
+        const newCronograma = {};
+        if (parsedFechaI && parsedFechaF) {
+            const start = new Date(parsedFechaI + 'T00:00:00');
+            const end = new Date(parsedFechaF + 'T00:00:00');
+            const shiftsArr = ['T1', 'T2', 'T3'];
+
+            if (start <= end) {
+                for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+                    const dStr = dt.toISOString().split('T')[0];
+                    let dailyShifts = [];
+                    
+                    if (parsedFechaI === parsedFechaF) {
+                        let sIdx = shiftsArr.indexOf(parsedTurnoI);
+                        let eIdx = shiftsArr.indexOf(parsedTurnoF);
+                        if (sIdx > eIdx) [sIdx, eIdx] = [eIdx, sIdx]; 
+                        dailyShifts = shiftsArr.slice(sIdx, eIdx + 1);
+                    } else {
+                        if (dStr === parsedFechaI) {
+                            dailyShifts = shiftsArr.slice(shiftsArr.indexOf(parsedTurnoI));
+                        } else if (dStr === parsedFechaF) {
+                            dailyShifts = shiftsArr.slice(0, shiftsArr.indexOf(parsedTurnoF) + 1);
+                        } else {
+                            dailyShifts = [...shiftsArr];
+                        }
+                    }
+                    newCronograma[dStr] = dailyShifts;
+                }
+            }
+        }
 
         if (actividad && (monto >= 0 || monto < 0)) {
-            newItems.push({ id: `PASTE-${Date.now()}-${index}`, actividad, monto, concepto, responsable, tipo });
+            newItems.push({
+                id: `PASTE-${Date.now()}-${index}`,
+                actividad, monto, concepto, responsable, tipo,
+                fechaInicio: parsedFechaI, fechaFin: parsedFechaF,
+                cronograma: newCronograma
+            });
             successCount++;
         }
     });
 
     if (newItems.length > 0) {
-        setData(prev => [...prev, ...newItems]);
+        setData(prev => [...newItems, ...prev]);
         setPasteData('');
-        alert(`¡Importación exitosa! Se añadieron ${successCount} registros.`);
+        setToastMsg(`¡Importación exitosa! Se añadieron ${successCount} actividades.`);
     } else {
-        alert("No se pudieron leer los datos. Verifica el formato.");
+        setToastMsg("No se pudieron leer los datos. Verifica el formato.");
     }
   };
 
-  // --- Lógica Importación Archivo ---
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const arrayBuffer = event.target.result;
-      if (window.XLSX) {
-        try {
-          const workbook = window.XLSX.read(arrayBuffer, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          processDataRows(jsonData);
-        } catch (error) { alert("Error al leer Excel."); }
-      } else {
-        const dec = new TextDecoder("utf-8");
-        const text = dec.decode(arrayBuffer);
-        const rows = text.split('\n').map(line => line.split(','));
-        processDataRows(rows);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
+  // --- CÁLCULOS ESTADÍSTICOS Y RESPONSABLES ÚNICOS ---
+  const uniqueResponsables = useMemo(() => {
+    const resps = new Set(data.map(d => d.responsable).filter(Boolean));
+    return Array.from(resps).sort(); 
+  }, [data]);
 
-  const processDataRows = (rows) => {
-    const newItems = [];
-    rows.forEach((cols, index) => {
-      if (!cols || cols.length < 2) return;
-      const getVal = (val) => {
-        if (val === null || val === undefined) return '';
-        return String(val).trim().replace(/"/g, '');
-      };
-      const cleanMonto = (val) => {
-        if (typeof val === 'number') return val;
-        if (!val) return 0;
-        return parseFloat(String(val).replace(/[$,"]/g, '').replace(/,/g, '')) || 0;
-      };
-
-      const actLeft = getVal(cols[1]);
-      const montLeft = cleanMonto(cols[2]);
-      if (actLeft && actLeft !== "ACTIVIDAD" && montLeft >= 0) {
-        newItems.push({
-          id: `L-${index}`, actividad: actLeft, monto: montLeft, concepto: getVal(cols[3]) || "OPEX", responsable: getVal(cols[4]) || "GENERAL", tipo: determineTipo(cols[5]) 
-        });
-      }
-      const actRight = getVal(cols[9]);
-      const montRight = cleanMonto(cols[10]);
-      if (actRight && actRight !== "ACTIVIDAD" && montRight >= 0) {
-         newItems.push({
-          id: `R-${index}`, actividad: actRight, monto: montRight, concepto: getVal(cols[11]) || "API", responsable: getVal(cols[12]) || "GENERAL", tipo: determineTipo(cols[13]) 
-        });
-      }
-    });
-    if (newItems.length > 0) {
-      setData(newItems);
-      alert(`¡Éxito! Se cargaron ${newItems.length} registros.`);
-    } else {
-      alert("No se encontraron datos válidos.");
-    }
-  };
-
-  // --- CÁLCULOS ---
   const metrics = useMemo(() => {
     const totalGasto = data.reduce((acc, item) => acc + item.monto, 0);
-    const byConcepto = data.reduce((acc, item) => {
-      const key = item.concepto || "OTROS";
-      acc[key] = (acc[key] || 0) + item.monto;
-      return acc;
-    }, {});
+    const byConcepto = data.reduce((acc, item) => { acc[item.concepto || "OTROS"] = (acc[item.concepto || "OTROS"] || 0) + item.monto; return acc; }, {});
+    const byTipo = data.reduce((acc, item) => { acc[item.tipo || "OTRO"] = (acc[item.tipo || "OTRO"] || 0) + item.monto; return acc; }, {});
+    const byResponsable = data.reduce((acc, item) => { acc[item.responsable || "SIN ASIGNAR"] = (acc[item.responsable || "SIN ASIGNAR"] || 0) + item.monto; return acc; }, {});
+    
     const chartDataConcepto = Object.keys(byConcepto).map(key => ({ name: key, value: byConcepto[key] }));
-
-    const byTipo = data.reduce((acc, item) => {
-      const key = item.tipo || "SIN CLASIFICAR"; 
-      acc[key] = (acc[key] || 0) + item.monto;
-      return acc;
-    }, {});
     const chartDataTipo = Object.keys(byTipo).map(key => ({ name: key, value: byTipo[key] }));
-
-    const byResponsable = data.reduce((acc, item) => {
-      const key = item.responsable || "SIN ASIGNAR";
-      acc[key] = (acc[key] || 0) + item.monto;
-      return acc;
-    }, {});
-    const chartDataResponsable = Object.keys(byResponsable)
-      .map(key => ({ name: key, monto: byResponsable[key] }))
-      .sort((a, b) => b.monto - a.monto);
-
+    
+    const chartDataResponsable = Object.keys(byResponsable).map(key => ({ name: key, monto: byResponsable[key] })).sort((a, b) => b.monto - a.monto);
+    
     const sortedApi = data.filter(d => d.concepto === 'API').sort((a,b) => b.monto - a.monto);
     const sortedOpex = data.filter(d => d.concepto === 'OPEX').sort((a,b) => b.monto - a.monto);
 
-    return { totalGasto, chartDataConcepto, chartDataTipo, chartDataResponsable, byConcepto, sortedApi, sortedOpex };
-  }, [data]);
+    let planningData = [...data];
+    if(filterResponsable) planningData = planningData.filter(d => d.responsable === filterResponsable);
+    planningData.sort((a,b) => a.responsable.localeCompare(b.responsable));
+
+    return { totalGasto, chartDataConcepto, chartDataTipo, chartDataResponsable, byConcepto, sortedApi, sortedOpex, planningData };
+  }, [data, filterResponsable]);
+
+  const planningDays = useMemo(() => getDaysArray(planningDate, 7), [planningDate]);
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+      
+      {/* --- TOAST NOTIFICATIONS --- */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-4 rounded-xl shadow-2xl z-[100] animate-in slide-in-from-bottom-5 flex items-center justify-between min-w-[300px]">
+           <span className="font-medium text-sm">{toastMsg}</span>
+           <button onClick={() => setToastMsg('')} className="ml-4 text-slate-400 hover:text-white"><X size={18}/></button>
+        </div>
+      )}
+
+      {/* --- CONFIRM DIALOG MODAL --- */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+             <h3 className="text-xl font-bold text-slate-800 mb-2">Confirmar Acción</h3>
+             <p className="text-slate-600 mb-6 text-sm">{confirmDialog.message}</p>
+             <div className="flex justify-end space-x-3">
+               <button onClick={() => setConfirmDialog({...confirmDialog, isOpen: false})} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-lg transition-colors">Cancelar</button>
+               <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog({...confirmDialog, isOpen: false}); }} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm">Sí, eliminar</button>
+             </div>
+          </div>
+        </div>
+      )}
+
       <header className="bg-slate-900 text-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -443,14 +602,22 @@ export default function MaintenanceDashboard() {
             <span className="text-lg font-semibold tracking-wide text-slate-100">DASHBOARD</span>
           </div>
           <nav className="flex space-x-2">
-            <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>Dashboard</button>
-            <button onClick={() => setView('entry')} className={`px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'entry' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>Gestión</button>
+            <button onClick={() => setView('dashboard')} className={`flex items-center px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>
+                <LayoutDashboard size={16} className="mr-2"/> Dashboard
+            </button>
+            <button onClick={() => setView('entry')} className={`flex items-center px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'entry' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>
+                <Table size={16} className="mr-2"/> Gestión
+            </button>
+            <button onClick={() => setView('planning')} className={`flex items-center px-4 py-2 rounded text-sm font-medium transition-colors ${view === 'planning' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}>
+                <Calendar size={16} className="mr-2"/> Planeación
+            </button>
           </nav>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
+        {/* ================= VISTA: DASHBOARD ================= */}
         {view === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex justify-between items-end border-b border-slate-200 pb-4">
@@ -471,23 +638,13 @@ export default function MaintenanceDashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Gráfico 1: Distribución API vs OPEX con etiquetas externas */}
               <Card className="p-6">
                 <h3 className="text-sm font-bold text-slate-700 uppercase mb-6 flex items-center"><span className="w-1 h-4 bg-blue-800 mr-2"></span>Distribución (API vs OPEX)</h3>
                 {data.length > 0 ? (
                   <div className="h-80 w-full flex justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie 
-                          data={metrics.chartDataConcepto} 
-                          cx="50%" cy="50%" 
-                          innerRadius={60} 
-                          outerRadius={90} 
-                          paddingAngle={2} 
-                          dataKey="value"
-                          label={renderCustomizedLabel} // Usar etiqueta personalizada
-                          labelLine={true}
-                        >
+                        <Pie data={metrics.chartDataConcepto} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value" label={renderCustomizedLabel} labelLine={true}>
                           {metrics.chartDataConcepto.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.name === 'API' ? COLORS.API : entry.name === 'OPEX' ? COLORS.OPEX : COLORS.IMP} />))}
                         </Pie>
                         <RechartsTooltip formatter={(value) => formatCurrency(value)} contentStyle={{borderRadius:'8px'}} />
@@ -498,23 +655,13 @@ export default function MaintenanceDashboard() {
                 ) : <div className="h-72 flex items-center justify-center text-slate-400">Sin datos</div>}
               </Card>
 
-              {/* Gráfico 2: Eficiencia con etiquetas externas */}
               <Card className="p-6">
-                 <h3 className="text-sm font-bold text-slate-700 uppercase mb-6 flex items-center"><span className="w-1 h-4 bg-emerald-600 mr-2"></span>Eficiencia (Tipo de OM)</h3>
+                  <h3 className="text-sm font-bold text-slate-700 uppercase mb-6 flex items-center"><span className="w-1 h-4 bg-emerald-600 mr-2"></span>Eficiencia (Tipo de OM)</h3>
                 {data.length > 0 ? (
                   <div className="h-80 w-full flex justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie 
-                          data={metrics.chartDataTipo} 
-                          cx="50%" cy="50%" 
-                          innerRadius={60} 
-                          outerRadius={90} 
-                          paddingAngle={2} 
-                          dataKey="value"
-                          label={renderCustomizedLabel} // Usar etiqueta personalizada
-                          labelLine={true}
-                        >
+                        <Pie data={metrics.chartDataTipo} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value" label={renderCustomizedLabel} labelLine={true}>
                           {metrics.chartDataTipo.map((entry, index) => {
                             let color = '#cbd5e1'; 
                             if (entry.name === 'PREVENTIVO') color = COLORS.PREV;
@@ -532,16 +679,13 @@ export default function MaintenanceDashboard() {
               </Card>
             </div>
 
-            {/* GRÁFICOS DETALLADOS CON BOTÓN DE EXPANDIR */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-               
-               {/* Detalle API */}
                <Card className="p-6 h-[500px] flex flex-col relative">
                  <button onClick={() => setModalOpen('API')} className="absolute top-4 right-4 text-slate-400 hover:text-blue-600 transition-colors p-2 rounded hover:bg-blue-50" title="Ver hoja completa">
                     <Maximize2 size={20} />
                  </button>
-                 <h3 className="text-sm font-bold text-slate-700 uppercase mb-4 flex items-center"><span className="w-1 h-4 bg-blue-800 mr-2"></span>Detalle API</h3>
-                 <div className="flex-1 overflow-y-auto pr-2">
+                 <h3 className="text-sm font-bold text-slate-700 uppercase mb-4 flex items-center"><span className="w-1 h-4 bg-blue-800 mr-2"></span>Detalle Inversiones (API)</h3>
+                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                     {metrics.sortedApi.length > 0 ? (
                         <div style={{ height: Math.max(400, metrics.sortedApi.length * 50) }}>
                             <ResponsiveContainer width="100%" height="100%">
@@ -560,13 +704,12 @@ export default function MaintenanceDashboard() {
                  </div>
                </Card>
 
-               {/* Detalle OPEX */}
                <Card className="p-6 h-[500px] flex flex-col relative">
                  <button onClick={() => setModalOpen('OPEX')} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors p-2 rounded hover:bg-slate-100" title="Ver hoja completa">
                     <Maximize2 size={20} />
                  </button>
-                 <h3 className="text-sm font-bold text-slate-700 uppercase mb-4 flex items-center"><span className="w-1 h-4 bg-slate-500 mr-2"></span>Detalle OPEX</h3>
-                 <div className="flex-1 overflow-y-auto pr-2">
+                 <h3 className="text-sm font-bold text-slate-700 uppercase mb-4 flex items-center"><span className="w-1 h-4 bg-slate-500 mr-2"></span>Detalle Operativo (OPEX)</h3>
+                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                     {metrics.sortedOpex.length > 0 ? (
                         <div style={{ height: Math.max(400, metrics.sortedOpex.length * 50) }}>
                             <ResponsiveContainer width="100%" height="100%">
@@ -586,12 +729,11 @@ export default function MaintenanceDashboard() {
                </Card>
             </div>
 
-            {/* GASTO TOTAL POR RESPONSABLE */}
             <Card className="p-6 relative">
               <button onClick={() => setModalOpen('RESP')} className="absolute top-4 right-4 text-slate-400 hover:text-indigo-600 transition-colors p-2 rounded hover:bg-indigo-50" title="Ver hoja completa">
                  <Maximize2 size={20} />
               </button>
-              <h3 className="text-sm font-bold text-slate-700 uppercase mb-4 flex items-center"><span className="w-1 h-4 bg-indigo-600 mr-2"></span>Gasto por Puesto</h3>
+              <h3 className="text-sm font-bold text-slate-700 uppercase mb-4 flex items-center"><span className="w-1 h-4 bg-indigo-600 mr-2"></span>Gasto Total por Responsable</h3>
               {data.length > 0 ? (
                 <div className="h-80 w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -600,9 +742,11 @@ export default function MaintenanceDashboard() {
                       <XAxis dataKey="name" tick={{fontSize: 12, fill: '#64748b'}} interval={0} />
                       <YAxis tickFormatter={(val)=> `$${val/1000}k`} tick={{fontSize: 12, fill: '#64748b'}} />
                       <RechartsTooltip formatter={(value) => formatCurrency(value)} contentStyle={{borderRadius:'8px'}} />
-                      <Bar dataKey="monto" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="monto" radius={[4, 4, 0, 0]}>
                         <LabelList dataKey="monto" position="top" formatter={(value) => formatCurrency(value)} style={{ fontSize: '11px', fill: '#475569', fontWeight: 'bold' }} />
-                        {metrics.chartDataResponsable.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS.BARS[index % COLORS.BARS.length]} />))}
+                        {metrics.chartDataResponsable.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={getResponsableColor(entry.name, uniqueResponsables)} />
+                        ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -610,14 +754,9 @@ export default function MaintenanceDashboard() {
               ) : <div className="h-80 flex items-center justify-center text-slate-400">Sin datos</div>}
             </Card>
 
-             {/* MODALES PARA VISTA COMPLETA (Con botón de descarga) */}
-             <FullScreenModal 
-                isOpen={modalOpen === 'API'} 
-                onClose={() => setModalOpen(null)} 
-                title="Desglose Completo: Inversiones (API)"
-                contentId="modal-chart-api"
-             >
-                <div style={{ height: Math.max(600, metrics.sortedApi.length * 40) }} id="modal-chart-api">
+             {/* Modales Dashboard */}
+             <FullScreenModal isOpen={modalOpen === 'API'} onClose={() => setModalOpen(null)} title="Ranking Inversiones (API)" contentId="modal-api">
+                <div style={{ height: Math.max(600, metrics.sortedApi.length * 40) }} id="modal-api">
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={metrics.sortedApi} layout="vertical" margin={{top:20, right:100, left:20, bottom:20}}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0"/>
@@ -632,13 +771,8 @@ export default function MaintenanceDashboard() {
                 </div>
              </FullScreenModal>
 
-             <FullScreenModal 
-                isOpen={modalOpen === 'OPEX'} 
-                onClose={() => setModalOpen(null)} 
-                title="Desglose Completo: Gastos Operativos (OPEX)"
-                contentId="modal-chart-opex"
-             >
-                <div style={{ height: Math.max(600, metrics.sortedOpex.length * 40) }} id="modal-chart-opex">
+             <FullScreenModal isOpen={modalOpen === 'OPEX'} onClose={() => setModalOpen(null)} title="Ranking Gastos (OPEX)" contentId="modal-opex">
+                <div style={{ height: Math.max(600, metrics.sortedOpex.length * 40) }} id="modal-opex">
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={metrics.sortedOpex} layout="vertical" margin={{top:20, right:100, left:20, bottom:20}}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0"/>
@@ -653,151 +787,416 @@ export default function MaintenanceDashboard() {
                 </div>
              </FullScreenModal>
 
-             <FullScreenModal 
-                isOpen={modalOpen === 'RESP'} 
-                onClose={() => setModalOpen(null)} 
-                title="Vista Completa: Gasto por Responsable"
-                contentId="modal-chart-resp"
-             >
-                <div className="h-[600px]" id="modal-chart-resp">
+             <FullScreenModal isOpen={modalOpen === 'RESP'} onClose={() => setModalOpen(null)} title="Gasto por Responsable" contentId="modal-resp">
+                <div className="h-[600px]" id="modal-resp">
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={metrics.chartDataResponsable} margin={{ top: 40, right: 30, left: 20, bottom: 50 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis dataKey="name" tick={{fontSize: 14, fill: '#64748b'}} interval={0} angle={-15} textAnchor="end" />
                         <YAxis tickFormatter={(val)=> formatCurrency(val)} tick={{fontSize: 12, fill: '#64748b'}} width={100}/>
                         <RechartsTooltip formatter={(value) => formatCurrency(value)} contentStyle={{borderRadius:'8px'}} />
-                        <Bar dataKey="monto" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                        <Bar dataKey="monto" radius={[4, 4, 0, 0]}>
                           <LabelList dataKey="monto" position="top" formatter={(value) => formatCurrency(value)} style={{ fontSize: '14px', fill: '#475569', fontWeight: 'bold' }} />
-                          {metrics.chartDataResponsable.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS.BARS[index % COLORS.BARS.length]} />))}
+                          {metrics.chartDataResponsable.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={getResponsableColor(entry.name, uniqueResponsables)} />
+                          ))}
                         </Bar>
                       </BarChart>
                    </ResponsiveContainer>
                 </div>
              </FullScreenModal>
-
           </div>
         )}
 
-        {view === 'entry' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-right duration-500">
-            {/* ... Resto del componente de entrada ... */}
-            <div className="lg:col-span-1 space-y-6">
-              <Card className="p-6 bg-blue-50 border-blue-200">
-                 <h3 className="text-sm font-bold text-blue-900 mb-2 flex items-center uppercase">
-                  <Clipboard className="mr-2 text-blue-600" size={18}/> Pegar Datos Masivos
-                </h3>
-                <p className="text-xs text-blue-700 mb-3">
-                  Copia de Excel y pega aquí. Formato: <br/><b>Actividad - Monto - Concepto - Responsable - Tipo</b>
-                </p>
-                <textarea 
-                  rows={4}
-                  value={pasteData}
-                  onChange={(e) => setPasteData(e.target.value)}
-                  className="w-full text-xs p-3 rounded border border-blue-200 focus:ring-2 focus:ring-blue-400 mb-3"
-                  placeholder="Ej: MTTO MOTOR - $2,500.00 - OPEX - ELECTRICO - PREVENTIVO"
-                />
-                <button type="button" onClick={handlePasteProcess} className="w-full py-2 bg-blue-700 text-white rounded text-sm font-bold hover:bg-blue-800 transition shadow-sm">
-                    Procesar Datos
-                </button>
-              </Card>
+        {/* ================= VISTA: PLANEACIÓN GANTT ================= */}
+        {view === 'planning' && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+               <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                 <Calendar className="mr-3 text-indigo-600" /> Planeación de Mantenimiento
+               </h2>
+               <p className="text-slate-500 text-sm mt-1 mb-6">
+                   Línea Gantt general (Solo lectura). <b>Haz clic en una barra azul</b> para ver los turnos correspondientes.
+               </p>
 
-              <Card className="p-6 border-t-4 border-emerald-500">
-                <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center uppercase">
-                  <PlusCircle className="mr-2 text-emerald-500" size={18}/> Registro Manual
-                </h3>
-                <form onSubmit={handleAddData} className="space-y-4">
+               <div className="space-y-5">
+                  {/* Filtro por Meses */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Actividad</label>
-                    <textarea required rows={2} name="actividad" value={formData.actividad} onChange={handleInputChange} className="w-full rounded border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 p-2 text-sm border" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Monto</label>
-                    <input required type="number" name="monto" value={formData.monto} onChange={handleInputChange} className="w-full rounded border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 p-2 text-sm border" placeholder="0.00" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Concepto</label>
-                      <select name="concepto" value={formData.concepto} onChange={handleInputChange} className="w-full rounded border-slate-300 p-2 text-sm border">
-                        <option value="OPEX">OPEX</option>
-                        <option value="API">API</option>
-                        <option value="CAPEX">CAPEX</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Tipo OM</label>
-                      <select name="tipo" value={formData.tipo} onChange={handleInputChange} className="w-full rounded border-slate-300 p-2 text-sm border">
-                        <option value="PREVENTIVO">PREVENTIVO</option>
-                        <option value="CORRECTIVO">CORRECTIVO</option>
-                        <option value="MEJORA">MEJORA</option>
-                      </select>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Navegación por Meses (Año Actual)</span>
+                    <div className="flex w-full bg-slate-100/70 p-1 rounded-xl border border-slate-200 shadow-inner">
+                        {MONTHS.map((m, index) => {
+                            const isActive = planningDate.getMonth() === index;
+                            return (
+                                <button 
+                                    key={m} 
+                                    onClick={() => handleMonthClick(index)}
+                                    className={`flex-1 px-1 py-2 text-xs font-bold rounded-lg transition-all text-center ${isActive ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                                >
+                                    {m}
+                                </button>
+                            )
+                        })}
                     </div>
                   </div>
+
+                  {/* Filtro por Responsables */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Responsable</label>
-                    <input name="responsable" value={formData.responsable} onChange={handleInputChange} className="w-full rounded border-slate-300 p-2 text-sm border" />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Filtrar por Centro de Responsabilidad</span>
+                    <div className="flex w-full bg-slate-100/70 p-1 rounded-xl border border-slate-200 shadow-inner overflow-x-auto no-scrollbar">
+                        <button 
+                            onClick={() => setFilterResponsable('')}
+                            className={`flex-1 min-w-[80px] px-2 py-2 text-xs font-bold rounded-lg transition-all ${filterResponsable === '' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                        >
+                            TODOS
+                        </button>
+                        {uniqueResponsables.map(resp => {
+                            const isActive = filterResponsable === resp;
+                            const color = getResponsableColor(resp, uniqueResponsables);
+                            return (
+                                <button 
+                                    key={resp} 
+                                    onClick={() => setFilterResponsable(resp)}
+                                    className={`flex-1 min-w-[120px] px-2 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-2 ${isActive ? 'bg-white shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                                    style={isActive ? { color: color } : {}}
+                                >
+                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}></span>
+                                    <span className="truncate">{resp}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
                   </div>
-                  <button type="submit" className="w-full flex justify-center py-2 px-4 rounded shadow-sm text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 transition-colors">
-                    Agregar Registro
-                  </button>
-                </form>
-              </Card>
+
+                  {/* Controles de Navegación (7 Días) */}
+                  <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200 mt-2">
+                     <button 
+                       onClick={() => { const d = new Date(planningDate); d.setDate(d.getDate() - 7); setPlanningDate(d); }} 
+                       className="flex items-center px-4 py-2 hover:bg-white rounded-md shadow-sm transition-colors text-slate-700 text-sm font-bold"
+                     >
+                       <ChevronLeft size={18} className="mr-1"/> Anterior
+                     </button>
+                     <div className="px-4 py-1 font-black text-indigo-900 text-sm uppercase tracking-wider">
+                        {planningDays[0].toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })} - {planningDays[6].toLocaleDateString('es-CO', { month: 'short', day: 'numeric', year: 'numeric' })}
+                     </div>
+                     <button 
+                       onClick={() => { const d = new Date(planningDate); d.setDate(d.getDate() + 7); setPlanningDate(d); }} 
+                       className="flex items-center px-4 py-2 hover:bg-white rounded-md shadow-sm transition-colors text-slate-700 text-sm font-bold"
+                     >
+                       Siguiente <ChevronRight size={18} className="ml-1"/>
+                     </button>
+                  </div>
+               </div>
             </div>
 
-            <div className="lg:col-span-2">
-              <Card className="h-full flex flex-col">
-                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-lg">
-                   <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider">Base de Datos ({data.length} registros)</h3>
-                   <div className="flex items-center space-x-3">
-                      <button onClick={handleClearAll} className="text-slate-400 hover:text-red-600 transition-colors p-2 rounded hover:bg-red-50" title="Limpiar todo">
-                        <Trash2 size={18} />
-                      </button>
-                   </div>
+            <Card className="overflow-hidden bg-white">
+                {/* --- Barra de Scroll Superior Sincronizada --- */}
+                <div 
+                    ref={topScrollRef} 
+                    onScroll={handleTopScroll} 
+                    className="overflow-x-auto w-full custom-scrollbar bg-slate-100 border-b border-slate-200"
+                    style={{ height: '12px' }}
+                >
+                    <div style={{ width: tableScrollWidth, height: '1px' }}></div>
                 </div>
-                <div className="overflow-x-auto flex-1 p-0">
-                  <table className="w-full text-left text-sm text-slate-600">
-                    <thead className="bg-white text-xs uppercase font-semibold text-slate-400 sticky top-0 z-10 border-b border-slate-100">
-                      <tr>
-                        <th className="px-6 py-3">Actividad</th>
-                        <th className="px-6 py-3 text-right">Monto</th>
-                        <th className="px-6 py-3 text-center">Concepto</th>
-                        <th className="px-6 py-3">Responsable</th>
-                        <th className="px-6 py-3 text-center">Tipo</th>
-                        <th className="px-6 py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {data.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-50">
-                          <td className="px-6 py-2 font-medium text-slate-900 max-w-xs truncate">{item.actividad}</td>
-                          <td className="px-6 py-2 text-right font-mono text-slate-600">{formatCurrency(item.monto)}</td>
-                          <td className="px-6 py-2 text-center"><span className="text-xs font-bold text-slate-500">{item.concepto}</span></td>
-                          <td className="px-6 py-2 text-xs">{item.responsable}</td>
-                          <td className="px-6 py-2 text-center text-xs">{item.tipo}</td>
-                          <td className="px-6 py-2 text-center">
-                            <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-500 transition-colors">
-                              <Trash2 size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {data.length === 0 && (
+
+                <div 
+                    ref={tableScrollRef} 
+                    onScroll={handleTableScroll}
+                    className="overflow-x-auto w-full custom-scrollbar"
+                >
+                   <table className="w-full text-left text-sm border-collapse">
+                      <thead>
                         <tr>
-                          <td colSpan="6" className="px-6 py-12 text-center text-gray-400 italic">
-                            <div className="flex flex-col items-center">
-                               <RefreshCw className="mb-2 text-gray-300" size={24}/>
-                               Base de datos vacía.<br/>Usa el panel izquierdo para importar o pegar datos.
-                            </div>
-                          </td>
+                            <th className="bg-slate-50 border-b border-r border-slate-200 p-4 min-w-[320px] sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] align-bottom">
+                                <div className="text-lg font-black text-indigo-900 capitalize mb-1">
+                                    {planningDays[0].toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 uppercase">Actividad & Responsable</span>
+                            </th>
+                            {planningDays.map((day, i) => (
+                                <th key={i} className="bg-slate-50 border-b border-r border-slate-200 min-w-[120px] text-center p-0 align-bottom">
+                                    <div className="py-3 bg-slate-100 h-full flex flex-col justify-center">
+                                        <span className="block text-xs font-bold text-slate-500 uppercase">
+                                            {day.toLocaleDateString('es-CO', { weekday: 'short' })}
+                                        </span>
+                                        <span className="block text-xl text-slate-800 font-black mt-1">
+                                            {day.getDate()}
+                                        </span>
+                                    </div>
+                                </th>
+                            ))}
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                         {metrics.planningData.map((item) => {
+                             const rowSchedule = item.cronograma || {};
+                             const isExpanded = expandedRows.has(item.id);
+                             const rowColor = getResponsableColor(item.responsable, uniqueResponsables);
+
+                             return (
+                                <tr key={item.id} className="hover:bg-slate-50/50 border-b border-slate-100 transition-colors">
+                                    <td 
+                                      className="p-4 border-r border-slate-200 bg-white sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] cursor-pointer hover:bg-slate-50"
+                                      onClick={() => toggleRowExpanded(item.id)}
+                                      title="Clic para expandir/contraer turnos"
+                                    >
+                                        <div className="flex items-start">
+                                            <button className="mr-3 mt-0.5 text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded hover:bg-indigo-50">
+                                                {isExpanded ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}
+                                            </button>
+                                            <div className="flex-1">
+                                                <div className="font-bold text-slate-800 text-xs mb-1 line-clamp-2" title={item.actividad}>
+                                                    {item.actividad}
+                                                </div>
+                                                <div className="flex items-center justify-between mt-1">
+                                                    <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-bold shadow-sm" style={{ backgroundColor: rowColor }}>
+                                                        {item.responsable}
+                                                    </span>
+                                                    {item.fechaInicio && item.fechaFin && (
+                                                        <span className="text-[9px] text-slate-400 font-medium">
+                                                            {item.fechaInicio.slice(5)} al {item.fechaFin.slice(5)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    {planningDays.map((day, i) => {
+                                        const dateKey = formatDateKey(day);
+                                        const shifts = rowSchedule[dateKey] || [];
+                                        const isInRange = isDateInRange(dateKey, item.fechaInicio, item.fechaFin) || shifts.length > 0;
+                                        
+                                        if (isExpanded) {
+                                            // VISTA EXPANDIDA (Turnos granulares de solo lectura)
+                                            if (!isInRange && shifts.length === 0) {
+                                                return <td key={i} className="border-r border-slate-200 bg-slate-50/30"></td>;
+                                            }
+                                            return (
+                                                <td key={i} className="border-r border-slate-200 p-0 align-top h-full">
+                                                    <div className="grid grid-cols-3 h-full min-h-[50px]">
+                                                        {['T1', 'T2', 'T3'].map(shift => {
+                                                            const isActive = shifts.includes(shift);
+                                                            return (
+                                                                <div 
+                                                                    key={shift} 
+                                                                    className={`transition-all flex items-center justify-center border-r border-white/20 last:border-r-0 ${isActive ? 'bg-emerald-500 shadow-inner' : 'bg-slate-100'}`}
+                                                                >
+                                                                    <span className={`text-[9px] font-bold ${isActive ? 'text-white' : 'text-slate-400'}`}>{shift}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </td>
+                                            );
+                                        } else {
+                                            // VISTA COLAPSADA (Línea Gantt Continua interactiva)
+                                            return (
+                                                <td key={i} className="border-r border-slate-100 p-0 h-full relative align-middle">
+                                                    <div className="h-[50px] w-full flex items-center cursor-pointer hover:bg-slate-50" onClick={() => toggleRowExpanded(item.id)}>
+                                                        {isInRange ? (
+                                                            <div 
+                                                              className="h-6 w-full bg-blue-500 hover:bg-blue-600 transition-colors shadow-sm rounded-sm" 
+                                                              title="Clic para desglosar turnos"
+                                                            ></div>
+                                                        ) : (
+                                                            <div className="h-6 w-full transition-colors"></div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            );
+                                        }
+                                    })}
+                                </tr>
+                             );
+                         })}
+                         {metrics.planningData.length === 0 && (
+                            <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">No se encontraron actividades.</td></tr>
+                         )}
+                      </tbody>
+                   </table>
                 </div>
-              </Card>
+                <div className="bg-slate-50 p-3 border-t border-slate-200 flex items-center justify-end text-xs text-slate-500 space-x-6">
+                    <div className="flex items-center"><div className="w-4 h-4 bg-blue-500 mr-2 rounded"></div> Periodo General</div>
+                    <div className="flex items-center"><div className="w-4 h-4 bg-emerald-500 mr-2 rounded"></div> Turno Asignado</div>
+                    <div className="flex items-center"><div className="w-4 h-4 bg-slate-100 border border-slate-200 mr-2 rounded"></div> Sin Asignar</div>
+                </div>
+            </Card>
+          </div>
+        )}
+
+        {/* ================= VISTA: GESTIÓN ================= */}
+        {view === 'entry' && (
+          <div className="space-y-4 animate-in fade-in duration-500">
+            
+            {/* --- Botón para Toglear Formularios --- */}
+            <div className="flex justify-start">
+               <button 
+                 onDoubleClick={() => setShowForms(!showForms)}
+                 className="flex items-center bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm focus:outline-none"
+                 title="Haz doble clic para mostrar/ocultar los paneles de registro"
+               >
+                 <Pencil size={14} className="mr-2 text-indigo-600"/> 
+                 {showForms ? 'Doble clic para Ocultar Formularios' : 'Doble clic para Mostrar Formularios'}
+               </button>
+            </div>
+
+            <div className={`grid grid-cols-1 ${showForms ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-8 transition-all duration-300`}>
+                
+                {showForms && (
+                  <div className="lg:col-span-1 space-y-6 animate-in slide-in-from-left duration-300">
+                    <Card className="p-6 bg-blue-50 border-blue-200">
+                        <h3 className="text-sm font-bold text-blue-900 mb-2 flex items-center uppercase">
+                        <Clipboard className="mr-2 text-blue-600" size={18}/> Pegado Masivo Inteligente
+                      </h3>
+                      <p className="text-xs text-blue-700 mb-3">
+                        Copia de Excel y pega. Formato requerido: <br/><b>Actividad - Monto - Concepto - Responsable - Tipo - Fecha_I - Turno_I - Fecha_F - Turno_F</b>
+                      </p>
+                      <textarea 
+                        rows={4} value={pasteData} onChange={(e) => setPasteData(e.target.value)}
+                        className="w-full text-xs p-3 rounded border border-blue-200 focus:ring-2 focus:ring-blue-400 mb-3 font-mono"
+                        placeholder="MTTO 1A RODILLO - $12,000 - OPEX - MECANICO - PREVENTIVO - 22/06/2026 - T1 - 24/06/2026 - T1"
+                      />
+                      <button type="button" onClick={handlePasteProcess} className="w-full py-2 bg-blue-700 text-white rounded text-sm font-bold hover:bg-blue-800 transition shadow-sm">
+                          Procesar y Agrupar Datos
+                      </button>
+                    </Card>
+
+                    <Card className="p-6 border-t-4 border-emerald-500">
+                      <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center uppercase">
+                        <PlusCircle className="mr-2 text-emerald-500" size={18}/> Registro Manual
+                      </h3>
+                      <form onSubmit={handleAddData} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Actividad</label>
+                          <textarea required rows={2} name="actividad" value={formData.actividad} onChange={handleInputChange} className="w-full rounded border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 p-2 text-sm border" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Fecha Inicio</label>
+                              <input type="date" name="fechaInicio" value={formData.fechaInicio} onChange={handleInputChange} className="w-full rounded border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 p-2 text-sm border" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Fecha Fin</label>
+                              <input type="date" name="fechaFin" value={formData.fechaFin} onChange={handleInputChange} className="w-full rounded border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 p-2 text-sm border" />
+                            </div>
+                            <div className="col-span-2">
+                                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Turnos a Asignar</label>
+                                <div className="flex space-x-6 bg-white p-3 rounded border border-slate-300">
+                                    <label className="flex items-center space-x-2 text-sm font-bold text-slate-700 cursor-pointer">
+                                        <input type="checkbox" name="turnoT1" checked={formData.turnoT1} onChange={(e) => setFormData(prev => ({...prev, turnoT1: e.target.checked}))} className="rounded text-emerald-500 focus:ring-emerald-500" />
+                                        <span>Turno 1 (T1)</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 text-sm font-bold text-slate-700 cursor-pointer">
+                                        <input type="checkbox" name="turnoT2" checked={formData.turnoT2} onChange={(e) => setFormData(prev => ({...prev, turnoT2: e.target.checked}))} className="rounded text-emerald-500 focus:ring-emerald-500" />
+                                        <span>Turno 2 (T2)</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 text-sm font-bold text-slate-700 cursor-pointer">
+                                        <input type="checkbox" name="turnoT3" checked={formData.turnoT3} onChange={(e) => setFormData(prev => ({...prev, turnoT3: e.target.checked}))} className="rounded text-emerald-500 focus:ring-emerald-500" />
+                                        <span>Turno 3 (T3)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Monto</label>
+                          <input required type="number" name="monto" value={formData.monto} onChange={handleInputChange} className="w-full rounded border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 p-2 text-sm border" placeholder="0.00" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Concepto</label>
+                            <select name="concepto" value={formData.concepto} onChange={handleInputChange} className="w-full rounded border-slate-300 p-2 text-sm border">
+                              <option value="OPEX">OPEX</option>
+                              <option value="API">API</option>
+                              <option value="CAPEX">CAPEX</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Tipo OM</label>
+                            <select name="tipo" value={formData.tipo} onChange={handleInputChange} className="w-full rounded border-slate-300 p-2 text-sm border">
+                              <option value="PREVENTIVO">PREVENTIVO</option>
+                              <option value="CORRECTIVO">CORRECTIVO</option>
+                              <option value="MEJORA">MEJORA</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Responsable</label>
+                          <input name="responsable" value={formData.responsable} onChange={handleInputChange} className="w-full rounded border-slate-300 p-2 text-sm border" />
+                        </div>
+                        <button type="submit" className="w-full flex justify-center py-2 px-4 rounded shadow-sm text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 transition-colors">
+                          Agregar Registro
+                        </button>
+                      </form>
+                    </Card>
+                  </div>
+                )}
+
+                <div className={showForms ? "lg:col-span-2" : "col-span-1"}>
+                  <Card className="h-full flex flex-col">
+                    <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-lg">
+                       <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider">Base de Datos ({data.length} registros)</h3>
+                       <div className="flex items-center space-x-3">
+                          <button onClick={handleClearAll} className="flex items-center space-x-2 text-slate-500 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50 font-bold text-xs" title="Limpiar todo">
+                            <Trash2 size={16} /> <span>VACIAR BASE DE DATOS</span>
+                          </button>
+                       </div>
+                    </div>
+                    <div className="overflow-x-auto flex-1 p-0 custom-scrollbar">
+                      <table className="w-full text-left text-sm text-slate-600">
+                        <thead className="bg-white text-xs uppercase font-semibold text-slate-400 sticky top-0 z-10 border-b border-slate-100">
+                          <tr>
+                            <th className="px-6 py-3">Actividad</th>
+                            <th className="px-6 py-3 text-right">Monto</th>
+                            <th className="px-6 py-3 text-center">Concepto</th>
+                            <th className="px-6 py-3">Responsable</th>
+                            <th className="px-6 py-3 text-center">Fecha inicio</th>
+                            <th className="px-6 py-3 text-center">Fecha finalizacion</th>
+                            <th className="px-6 py-3"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {data.map((item) => (
+                            <tr key={item.id} className="hover:bg-slate-50">
+                              <td className="px-6 py-2 font-medium text-slate-900 max-w-xs truncate">{item.actividad}</td>
+                              <td className="px-6 py-2 text-right font-mono text-slate-600">{formatCurrency(item.monto)}</td>
+                              <td className="px-6 py-2 text-center"><span className="text-xs font-bold text-slate-500">{item.concepto}</span></td>
+                              <td className="px-6 py-2 text-xs">{item.responsable}</td>
+                              <td className="px-6 py-2 text-center text-xs text-slate-500 font-medium bg-slate-50/50 border-r border-white">
+                                  {item.fechaInicio || '-'}
+                              </td>
+                              <td className="px-6 py-2 text-center text-xs text-slate-500 font-medium bg-slate-50/50">
+                                  {item.fechaFin || '-'}
+                              </td>
+                              <td className="px-6 py-2 text-center">
+                                <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-500 transition-colors">
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {data.length === 0 && (
+                            <tr><td colSpan="7" className="px-6 py-12 text-center text-gray-400 italic">Base de datos vacía.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                </div>
             </div>
           </div>
         )}
       </main>
+      
+      {/* Estilos adicionales */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      `}} />
     </div>
   );
 }
